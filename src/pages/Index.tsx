@@ -8,6 +8,7 @@ import TripTable from "@/components/dashboard/TripTable";
 import TripFormModal from "@/components/dashboard/TripFormModal";
 import TripDetailModal from "@/components/dashboard/TripDetailModal";
 import AnalyticsCharts from "@/components/dashboard/AnalyticsCharts";
+import SourceAnalysis from "@/components/dashboard/SourceAnalysis";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -16,6 +17,7 @@ const Index = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewTrip, setViewTrip] = useState<Trip | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -83,18 +85,32 @@ const Index = () => {
     } catch (e) { console.error("Save API error:", e); }
   }, [editingTrip, toast]);
 
+  const getFilteredTrips = () => {
+    if (!selectedStatus) return trips;
+    if (selectedStatus === "total") return trips;
+    return trips.filter((t) => t.tripStatus === selectedStatus);
+  };
+
+  const filteredTrips = getFilteredTrips();
+
+  const handleStatusClick = (status: string | null) => {
+    setSelectedStatus(status === "total" ? null : status);
+  };
+
   return (
-    <DashboardLayout activeTab={activeTab} onTabChange={setActiveTab} onNewTrip={handleNewTrip}>
+    <DashboardLayout activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setSelectedStatus(null); }} onNewTrip={handleNewTrip}>
       <div className="space-y-6">
         <div className="animate-fade-in">
           <h2 className="text-2xl font-bold tracking-tight">
             {activeTab === "overview" && "Dashboard Overview"}
             {activeTab === "trips" && "Trip Management"}
+            {activeTab === "by-source" && "Shipments by Source"}
             {activeTab === "analytics" && "Analytics & Reports"}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {activeTab === "overview" && "Monitor your logistics operations at a glance"}
             {activeTab === "trips" && "View, create, and manage all trip records"}
+            {activeTab === "by-source" && "Analyze shipments by their origin locations"}
             {activeTab === "analytics" && "Insights and performance metrics"}
           </p>
         </div>
@@ -107,10 +123,17 @@ const Index = () => {
 
         {!loading && (
           <>
-            {(activeTab === "overview" || activeTab === "trips") && <KPICards trips={trips} />}
             {(activeTab === "overview" || activeTab === "trips") && (
-              <TripTable trips={trips} onEdit={handleEdit} onDelete={handleDelete} onView={(t) => setViewTrip(t)} />
+              <KPICards 
+                trips={trips} 
+                selectedStatus={selectedStatus}
+                onStatusClick={handleStatusClick}
+              />
             )}
+            {(activeTab === "overview" || activeTab === "trips") && (
+              <TripTable trips={filteredTrips} onEdit={handleEdit} onDelete={handleDelete} onView={(t) => setViewTrip(t)} />
+            )}
+            {activeTab === "by-source" && <SourceAnalysis trips={trips} />}
             {(activeTab === "overview" || activeTab === "analytics") && <AnalyticsCharts trips={trips} />}
           </>
         )}

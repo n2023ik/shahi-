@@ -13,8 +13,21 @@ function calculateDelay(pickupRaisedOn: string, actualPickupDate: string): numbe
   if (!pickupRaisedOn || !actualPickupDate) return null;
   
   try {
-    const raised = new Date(pickupRaisedOn);
-    const actual = new Date(actualPickupDate);
+    // Parse MM/DD/YYYY format
+    const parseDate = (dateStr: string) => {
+      const parts = dateStr.split("/");
+      if (parts.length !== 3) return null;
+      const month = parseInt(parts[0], 10);
+      const day = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month - 1, day); // month is 0-indexed in Date
+    };
+    
+    const raised = parseDate(pickupRaisedOn);
+    const actual = parseDate(actualPickupDate);
+    
+    if (!raised || !actual) return null;
+    
     const diffTime = actual.getTime() - raised.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -48,11 +61,15 @@ export default function TripDetailModal({ open, onClose, trip }: TripDetailModal
     ["Actual Pickup", trip.actualPickupDate || "—"],
     ["Delivered", trip.deliveredDate || "—"],
     ["Packet Status", trip.packetStatus],
-    ["Delay (Days)", delay !== null ? `${delay} days` : "—"],
     ["Task ID", trip.taskId],
     ["Zoho Ticket", trip.zohoTicketId],
     ["Remarks", trip.remarks || "—"],
   ];
+
+  const getDelayColor = (delayDays: number | null) => {
+    if (delayDays === null) return "text-muted-foreground";
+    return delayDays < 5 ? "text-green-500" : "text-red-500";
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -72,6 +89,12 @@ export default function TripDetailModal({ open, onClose, trip }: TripDetailModal
               <p className="text-sm mt-0.5">{value}</p>
             </div>
           ))}
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Delay (Days)</p>
+            <p className={cn("text-sm mt-0.5 font-semibold", getDelayColor(delay))}>
+              {delay !== null ? `${delay} days` : "—"}
+            </p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

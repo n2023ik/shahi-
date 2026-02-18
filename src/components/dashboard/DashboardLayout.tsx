@@ -5,6 +5,7 @@ import {
   BarChart3,
   Plus,
   Package,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ interface DashboardLayoutProps {
 const navItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "trips", label: "Trips", icon: Truck },
+  { id: "by-source", label: "By Source", icon: MapPin },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
 ];
 

@@ -44,9 +44,9 @@ export default function AnalyticsCharts({ trips }: AnalyticsChartsProps) {
   }, [trips]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
       {/* Trips by Status */}
-      <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <div className="lg:col-span-1 glass-card rounded-xl p-5 animate-slide-up">
         <h3 className="text-sm font-semibold mb-4">Trips by Status</h3>
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
@@ -56,7 +56,7 @@ export default function AnalyticsCharts({ trips }: AnalyticsChartsProps) {
             <Tooltip contentStyle={{ background: "hsl(220, 25%, 12%)", border: "1px solid hsl(220, 18%, 18%)", borderRadius: "8px", color: "hsl(210, 20%, 92%)" }} />
           </PieChart>
         </ResponsiveContainer>
-        <div className="flex flex-wrap gap-3 mt-2 justify-center">
+        <div className="flex flex-wrap gap-3 mt-4 justify-center">
           {statusData.map((d, i) => (
             <div key={d.name} className="flex items-center gap-1.5 text-xs">
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
@@ -68,13 +68,13 @@ export default function AnalyticsCharts({ trips }: AnalyticsChartsProps) {
       </div>
 
       {/* Trips by Source Location */}
-      <div className="glass-card rounded-xl p-5 animate-slide-up">
-        <h3 className="text-sm font-semibold mb-4">Trips by Source</h3>
+      <div className="lg:col-span-2 glass-card rounded-xl p-5 animate-slide-up">
+        <h3 className="text-sm font-semibold mb-4">Trips by Source Location</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={locationData} layout="vertical" margin={{ left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 18%, 18%)" />
             <XAxis type="number" tick={{ fill: "hsl(215, 12%, 50%)", fontSize: 11 }} />
-            <YAxis dataKey="name" type="category" tick={{ fill: "hsl(215, 12%, 50%)", fontSize: 11 }} width={90} />
+            <YAxis dataKey="name" type="category" tick={{ fill: "hsl(215, 12%, 50%)", fontSize: 10 }} width={100} />
             <Tooltip contentStyle={{ background: "hsl(220, 25%, 12%)", border: "1px solid hsl(220, 18%, 18%)", borderRadius: "8px", color: "hsl(210, 20%, 92%)" }} />
             <Bar dataKey="value" fill="hsl(190, 85%, 48%)" radius={[0, 4, 4, 0]} />
           </BarChart>
@@ -82,8 +82,8 @@ export default function AnalyticsCharts({ trips }: AnalyticsChartsProps) {
       </div>
 
       {/* Daily Pickups Trend */}
-      <div className="glass-card rounded-xl p-5 animate-slide-up">
-        <h3 className="text-sm font-semibold mb-4">Daily Trip Creation</h3>
+      <div className="lg:col-span-2 glass-card rounded-xl p-5 animate-slide-up">
+        <h3 className="text-sm font-semibold mb-4">Daily Trip Creation Trend</h3>
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={dailyData}>
             <defs>
@@ -102,7 +102,7 @@ export default function AnalyticsCharts({ trips }: AnalyticsChartsProps) {
       </div>
 
       {/* Delivery Performance */}
-      <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <div className="lg:col-span-1 glass-card rounded-xl p-5 animate-slide-up">
         <h3 className="text-sm font-semibold mb-4">Delivery Performance</h3>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={deliveryPerf}>

@@ -34,8 +34,21 @@ function calculateDelay(pickupRaisedOn: string, actualPickupDate: string): numbe
   if (!pickupRaisedOn || !actualPickupDate) return null;
   
   try {
-    const raised = new Date(pickupRaisedOn);
-    const actual = new Date(actualPickupDate);
+    // Parse MM/DD/YYYY format
+    const parseDate = (dateStr: string) => {
+      const parts = dateStr.split("/");
+      if (parts.length !== 3) return null;
+      const month = parseInt(parts[0], 10);
+      const day = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month - 1, day); // month is 0-indexed in Date
+    };
+    
+    const raised = parseDate(pickupRaisedOn);
+    const actual = parseDate(actualPickupDate);
+    
+    if (!raised || !actual) return null;
+    
     const diffTime = actual.getTime() - raised.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -279,7 +292,7 @@ export default function TripTable({
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold">
                       {delay !== null ? (
-                        <span className={delay > 0 ? "text-destructive" : "text-status-completed"}>
+                        <span className={delay < 5 ? "text-green-500" : "text-red-500"}>
                           {delay} days
                         </span>
                       ) : (
