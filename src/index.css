@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* your base styles */
+}
+
+
+@layer base {
+  :root {
+    --background: 222 30% 6%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 25% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 25% 12%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 190 85% 48%;
+    --primary-foreground: 220 30% 6%;
+
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 210 15% 75%;
+
+    --muted: 220 18% 14%;
+    --muted-foreground: 215 12% 50%;
+
+    --accent: 38 92% 55%;
+    --accent-foreground: 220 30% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 18% 18%;
+    --input: 220 18% 18%;
+    --ring: 190 85% 48%;
+
+    --radius: 0.75rem;
+
+    /* Status colors */
+    --status-completed: 152 60% 45%;
+    --status-in-transit: 210 80% 55%;
+    --status-pending: 38 92% 55%;
+    --status-cancelled: 0 72% 51%;
+    --status-rto: 280 60% 55%;
+    --status-confirmation: 45 90% 50%;
+
+    /* Logistics-specific */
+    --glow-primary: 190 85% 48%;
+    --surface-elevated: 220 22% 13%;
+    --chart-1: 190 85% 48%;
+    --chart-2: 152 60% 45%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 280 60% 55%;
+    --chart-5: 0 72% 51%;
+
+    --sidebar-background: 220 28% 8%;
+    --sidebar-foreground: 210 15% 75%;
+    --sidebar-primary: 190 85% 48%;
+    --sidebar-primary-foreground: 220 30% 6%;
+    --sidebar-accent: 220 20% 14%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 18% 15%;
+    --sidebar-ring: 190 85% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  code, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .glow-primary {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.3);
+  }
+
+  .glass-card {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .status-badge-completed {
+    background: hsl(var(--status-completed) / 0.15);
+    color: hsl(var(--status-completed));
+    border: 1px solid hsl(var(--status-completed) / 0.3);
+  }
+
+  .status-badge-in-transit {
+    background: hsl(var(--status-in-transit) / 0.15);
+    color: hsl(var(--status-in-transit));
+    border: 1px solid hsl(var(--status-in-transit) / 0.3);
+  }
+
+  .status-badge-pending {
+    background: hsl(var(--status-pending) / 0.15);
+    color: hsl(var(--status-pending));
+    border: 1px solid hsl(var(--status-pending) / 0.3);
+  }
+
+  .status-badge-cancelled {
+    background: hsl(var(--status-cancelled) / 0.15);
+    color: hsl(var(--status-cancelled));
+    border: 1px solid hsl(var(--status-cancelled) / 0.3);
+  }
+
+  .status-badge-rto {
+    background: hsl(var(--status-rto) / 0.15);
+    color: hsl(var(--status-rto));
+    border: 1px solid hsl(var(--status-rto) / 0.3);
+  }
+
+  .status-badge-confirmation {
+    background: hsl(var(--status-confirmation) / 0.15);
+    color: hsl(var(--status-confirmation));
+    border: 1px solid hsl(var(--status-confirmation) / 0.3);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
