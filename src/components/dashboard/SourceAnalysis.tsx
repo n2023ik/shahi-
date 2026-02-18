@@ -353,7 +353,7 @@ export default function SourceAnalysis({ trips }: SourceAnalysisProps) {
               <YAxis dataKey="source" type="category" tick={{ fill: "hsl(215, 12%, 50%)", fontSize: 11, fontWeight: "bold" }} width={140} />
               <Tooltip 
                 contentStyle={{ background: "hsl(220, 25%, 12%)", border: "1px solid hsl(220, 18%, 18%)", borderRadius: "8px", color: "hsl(210, 20%, 92%)" }} 
-                formatter={(value) => [`${value}%`, "Success Rate`]}
+                formatter={(value) => [`${value}%`, "Success Rate"]}
               />
               <Bar dataKey="completion" fill="hsl(152, 60%, 45%)" radius={[0, 8, 8, 0]} />
             </BarChart>
