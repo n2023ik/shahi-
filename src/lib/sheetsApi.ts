@@ -68,13 +68,28 @@ function formatDate(val: string): string {
   if (!val) return "";
 
   try {
-    if (val.includes("T")) {
+    // If already in dd/mm/yyyy format, return as is
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+      return val;
+    }
+
+    // If in ISO format or other date format, convert to dd/mm/yyyy
+    if (val.includes("T") || val.includes("-")) {
       const date = new Date(val);
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
-      return `${day}${month}${year}`;
+      return `${day}/${month}/${year}`;
     }
+
+    // If in ddmmyyyy format (8 digits), convert to dd/mm/yyyy
+    if (/^\d{8}$/.test(val)) {
+      const day = val.substring(0, 2);
+      const month = val.substring(2, 4);
+      const year = val.substring(4, 8);
+      return `${day}/${month}/${year}`;
+    }
+
     return val;
   } catch {
     return val;
