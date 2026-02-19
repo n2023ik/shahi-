@@ -3,7 +3,7 @@ import { mockTrips } from "./mockData";
 
 // Google Apps Script URL
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbw5pY_BCP448aOvjcpjdupvdBF47bXQrL3EsKCBEige1TgzT4oE2gQKyvjbb_R0X64/exec";
+  "https://script.google.com/macros/s/AKfycbyBSaACaoaHN1viP3xIivDi7srUkOiyliSrbVr5emzXytgAJ668CN-jogdLiI4piLopZw/exec";
 
 /* ============================================================
    DIRECT GOOGLE APPS SCRIPT CALL
