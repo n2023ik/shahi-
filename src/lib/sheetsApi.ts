@@ -69,11 +69,11 @@ function formatDate(val: string): string {
 
   try {
     if (val.includes("T")) {
-      return new Date(val).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
+      const date = new Date(val);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}${month}${year}`;
     }
     return val;
   } catch {
