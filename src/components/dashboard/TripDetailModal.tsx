@@ -13,12 +13,12 @@ function calculateDelay(pickupRaisedOn: string, actualPickupDate: string): numbe
   if (!pickupRaisedOn || !actualPickupDate) return null;
   
   try {
-    // Parse MM/DD/YYYY format
+    // Parse DD/MM/YYYY format
     const parseDate = (dateStr: string) => {
       const parts = dateStr.split("/");
       if (parts.length !== 3) return null;
-      const month = parseInt(parts[0], 10);
-      const day = parseInt(parts[1], 10);
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
       const year = parseInt(parts[2], 10);
       return new Date(year, month - 1, day); // month is 0-indexed in Date
     };
