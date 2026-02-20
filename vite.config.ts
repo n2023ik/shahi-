@@ -18,4 +18,22 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Disable source maps in production (hides code from DevTools)
+    sourcemap: false,
+    // Minify code (hides variable/function names)
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+      },
+      mangle: true, // Obfuscate variable names
+    },
+    // Optimize chunk size
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
 }));

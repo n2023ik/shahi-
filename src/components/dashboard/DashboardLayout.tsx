@@ -8,6 +8,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import LogoutButton from "@/components/LogoutButton";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -56,7 +57,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, onNe
           ))}
         </nav>
 
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
           <button
             onClick={onNewTrip}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 glow-primary"
@@ -64,6 +65,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, onNe
             <Plus className="h-4 w-4" />
             New Trip
           </button>
+          <LogoutButton />
         </div>
       </aside>
 

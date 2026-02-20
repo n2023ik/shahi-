@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 ================================= */
 
 const APPS_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbxV-IR3gzErbmmF6HLrCVkNsVFjoZ8VtJsRimFUnkpkwpBNbYF8TwaacRMPBUa32Zc1IA/exec";
+  "https://script.google.com/macros/s/AKfycbzYicV755DbB9qU7Jaokt8SsNpy-OybkQqrNy6H10-Jo9UVBEgdWN74Td78KIRzjHHIaQ/exec";
 
 const ALLOWED_ORIGIN = "*";
 
