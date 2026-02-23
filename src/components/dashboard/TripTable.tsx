@@ -29,40 +29,65 @@ interface TripTableProps {
 
 const PAGE_SIZE = 10;
 
-// Calculate delay in days
-function calculateDelay(pickupRaisedOn: string, actualPickupDate: string): number | null {
-  if (!pickupRaisedOn || !actualPickupDate) return null;
-  
+const dateFields: (keyof Trip)[] = [
+  "tripCreationDate",
+  "tripCompletionDate",
+  "pickupRaisedOn",
+  "actualPickupDate",
+  "deliveredDate",
+];
+
+/* ===============================
+   SAFE DATE PARSER
+================================ */
+function parseDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+
   try {
-    // Parse DD/MM/YYYY format
-    const parseDate = (dateStr: string) => {
-      const parts = dateStr.split("/");
-      if (parts.length !== 3) return null;
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month - 1, day); // month is 0-indexed in Date
-    };
-    
-    const raised = parseDate(pickupRaisedOn);
-    const actual = parseDate(actualPickupDate);
-    
-    if (!raised || !actual) return null;
-    
-    const diffTime = actual.getTime() - raised.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    if (dateStr.includes("/")) {
+      const [day, month, year] = dateStr.split("/").map(Number);
+      if (!day || !month || !year) return null;
+      const date = new Date(year, month - 1, day);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }
 }
 
+/* ===============================
+   DELAY = Actual Pickup - Raised
+================================ */
+function calculateDelay(
+  pickupRaisedOn?: string,
+  actualPickupDate?: string
+): number | null {
+  if (!pickupRaisedOn || !actualPickupDate) return null;
+
+  const raised = parseDate(pickupRaisedOn);
+  const actual = parseDate(actualPickupDate);
+
+  if (!raised || !actual) return null;
+
+  const diffMs = actual.getTime() - raised.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24)); // negative allowed
+}
+
 const statusBadgeClass: Record<TripStatus, string> = {
-  Completed: "status-badge-completed",
-  "In-Transit": "status-badge-in-transit",
-  Mapped: "bg-yellow-500/20 text-yellow-500",
-  "Trip Not Created": "bg-gray-500/20 text-gray-400",
+  "Trip Completed":
+    "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border border-green-200",
+  "In Transit":
+    "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border border-blue-200",
+  "Awaiting to Departure":
+    "bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 border border-yellow-200",
+  "Trip Not Created":
+    "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border border-red-200",
 };
+
+const SLA_DAYS = 3; // Red if delay > 3 days
 
 export default function TripTable({
   trips,
@@ -88,12 +113,21 @@ export default function TripTable({
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.tripId?.toLowerCase().includes(q) ||
-          t.vehicleNo?.toLowerCase().includes(q) ||
-          t.transporterName?.toLowerCase().includes(q) ||
-          t.packetStatus?.toLowerCase().includes(q)
+
+      result = result.filter((t) =>
+        [
+          t.tripId,
+          t.vehicleNo,
+          t.transporterName,
+          t.packetStatus,
+          t.sourceAddress,
+          t.destinationAddress,
+          t.tripStatus,
+        ]
+          .filter(Boolean)
+          .some((field) =>
+            field!.toLowerCase().includes(q)
+          )
       );
     }
 
@@ -101,26 +135,32 @@ export default function TripTable({
   }, [trips, statusFilter, search]);
 
   /* ===============================
-     SORT (robust comparison)
+     SORT (Deterministic)
   ================================ */
   const sortedTrips = useMemo(() => {
     const sorted = [...filteredTrips];
 
     sorted.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
 
-      // Convert dates if possible
-      if (typeof aVal === "string" && Date.parse(aVal)) {
-        aVal = new Date(aVal).getTime() as any;
-        bVal = new Date(bVal as string).getTime() as any;
+      if (dateFields.includes(sortField)) {
+        const aDate = parseDate(aVal);
+        const bDate = parseDate(bVal);
+        aVal = aDate ? aDate.getTime() : null;
+        bVal = bDate ? bDate.getTime() : null;
       }
 
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+      if (aVal == null && bVal == null) return 0;
       if (aVal == null) return 1;
       if (bVal == null) return -1;
 
       if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
       if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+
       return 0;
     });
 
@@ -128,13 +168,17 @@ export default function TripTable({
   }, [filteredTrips, sortField, sortDir]);
 
   /* ===============================
-     PAGINATION
+     RESET PAGE
   ================================ */
+  useEffect(() => {
+    setPage(0);
+  }, [search, statusFilter, sortField, sortDir]);
+
   const totalPages = Math.ceil(sortedTrips.length / PAGE_SIZE);
 
   useEffect(() => {
-    if (page >= totalPages && totalPages > 0) {
-      setPage(totalPages - 1);
+    if (page > totalPages - 1) {
+      setPage(0);
     }
   }, [totalPages, page]);
 
@@ -172,29 +216,19 @@ export default function TripTable({
 
   return (
     <div className="glass-card rounded-xl animate-slide-up">
-
       {/* FILTER BAR */}
       <div className="flex flex-col sm:flex-row gap-3 p-4 border-b border-border">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search Trip ID, Vehicle, Transporter..."
+            placeholder="Search anything..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-secondary border-border"
           />
         </div>
 
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
-            setPage(0);
-          }}
-        >
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-48 bg-secondary border-border">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
@@ -217,17 +251,13 @@ export default function TripTable({
               <SortHeader field="sNo">#</SortHeader>
               <SortHeader field="tripId">Trip ID</SortHeader>
               <SortHeader field="pickupRaisedOn">Pickup Raised</SortHeader>
+              <SortHeader field="actualPickupDate">Actual Pickup</SortHeader>
               <SortHeader field="vehicleNo">Vehicle</SortHeader>
               <SortHeader field="sourceAddress">Source</SortHeader>
-              <SortHeader field="destinationAddress">
-                Destination
-              </SortHeader>
-              <SortHeader field="transporterName">
-                Transporter
-              </SortHeader>
+              <SortHeader field="destinationAddress">Destination</SortHeader>
+              <SortHeader field="transporterName">Transporter</SortHeader>
               <SortHeader field="tripStatus">Status</SortHeader>
-              <SortHeader field="packetStatus">Packet Status</SortHeader>
-              <th className="px-4 py-3 text-xs font-semibold uppercase text-muted-foreground cursor-pointer hover:text-foreground">
+              <th className="px-4 py-3 text-xs font-semibold uppercase text-muted-foreground">
                 Delay (Days)
               </th>
               <th className="px-4 py-3 text-xs font-semibold uppercase text-muted-foreground">
@@ -239,42 +269,32 @@ export default function TripTable({
           <tbody>
             {pagedTrips.length === 0 ? (
               <tr>
-                <td
-                  colSpan={11}
-                  className="px-4 py-12 text-center text-muted-foreground"
-                >
+                <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
                   No trips match your filters.
                 </td>
               </tr>
             ) : (
               pagedTrips.map((trip) => {
-                const delay = calculateDelay(trip.pickupRaisedOn, trip.actualPickupDate);
+                const delay = calculateDelay(
+                  trip.pickupRaisedOn,
+                  trip.actualPickupDate
+                );
+
                 return (
                   <tr
                     key={trip.tripId}
                     className="border-b border-border/50 hover:bg-secondary/50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-mono text-muted-foreground">
-                      {trip.sNo}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-primary font-mono">
+                    <td className="px-4 py-3 text-sm font-mono">{trip.sNo}</td>
+                    <td className="px-4 py-3 font-semibold text-primary font-mono">
                       {trip.tripId}
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {trip.pickupRaisedOn}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-mono">
-                      {trip.vehicleNo}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {trip.sourceAddress}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {trip.destinationAddress}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {trip.transporterName}
-                    </td>
+                    <td className="px-4 py-3">{trip.pickupRaisedOn || "—"}</td>
+                    <td className="px-4 py-3">{trip.actualPickupDate || "—"}</td>
+                    <td className="px-4 py-3 font-mono">{trip.vehicleNo}</td>
+                    <td className="px-4 py-3">{trip.sourceAddress}</td>
+                    <td className="px-4 py-3">{trip.destinationAddress}</td>
+                    <td className="px-4 py-3">{trip.transporterName}</td>
                     <td className="px-4 py-3">
                       <span
                         className={cn(
@@ -285,14 +305,15 @@ export default function TripTable({
                         {trip.tripStatus}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className="inline-block rounded-md bg-secondary px-2.5 py-1 text-xs font-medium">
-                        {trip.packetStatus || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold">
+                    <td className="px-4 py-3 font-bold">
                       {delay !== null ? (
-                        <span className={delay < 5 ? "text-green-500" : "text-red-500"}>
+                        <span
+                          className={cn(
+                            delay > SLA_DAYS
+                              ? "text-red-600 bg-red-50/50 px-2 py-1 rounded"
+                              : "text-green-600 bg-green-50/50 px-2 py-1 rounded"
+                          )}
+                        >
                           {delay} days
                         </span>
                       ) : (
@@ -324,9 +345,7 @@ export default function TripTable({
       <div className="flex items-center justify-between px-4 py-3 border-t border-border">
         <p className="text-sm text-muted-foreground">
           Showing{" "}
-          {sortedTrips.length === 0
-            ? 0
-            : page * PAGE_SIZE + 1}–
+          {sortedTrips.length === 0 ? 0 : page * PAGE_SIZE + 1}—
           {Math.min((page + 1) * PAGE_SIZE, sortedTrips.length)} of{" "}
           {sortedTrips.length}
         </p>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { verifyTokenWithBackend, storeAuthToken } from "@/lib/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { config } from "@/lib/config";
 
 const isDev = import.meta.env.DEV;
 
@@ -62,7 +63,7 @@ export default function Login({ onLoginSuccess, onLoginError }: LoginProps) {
     isInitializing.current = true;
 
     window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "",
+      client_id: config.google.clientId || "",
       callback: handleCredentialResponse,
     });
 
@@ -136,7 +137,7 @@ export default function Login({ onLoginSuccess, onLoginError }: LoginProps) {
 
           {/* Google Sign-In Button */}
           <div className="mb-6">
-            {!import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+            {!config.google.clientId ? (
               <Alert variant="destructive" className="bg-red-950/50 border-red-900 text-red-200">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>

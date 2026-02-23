@@ -23,12 +23,15 @@
 /**
  * Fetch allowed emails from the "AllowedUsers" sheet
  * Sheet format: Column A with email addresses
+ * Note: Sheet name should match SHEET_CONFIG.ALLOWED_USERS in Config.gs
  */
 function getAllowedEmails() {
   try {
-    const sheet = SpreadsheetApp.getActive().getSheetByName("AllowedUsers");
+    // Use SHEET_CONFIG if available, otherwise fallback
+    const sheetName = typeof SHEET_CONFIG !== 'undefined' ? SHEET_CONFIG.ALLOWED_USERS : "AllowedUsers";
+    const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
     if (!sheet) {
-      Logger.log("AllowedUsers sheet not found");
+      Logger.log("AllowedUsers sheet not found: " + sheetName);
       return [];
     }
 

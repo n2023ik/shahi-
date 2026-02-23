@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Trip } from "@/lib/types";
-import { mockTrips } from "@/lib/mockData";
+import { generateMockTrips } from "@/lib/mockData";
 import { fetchTrips, createTrip as apiCreateTrip, updateTrip as apiUpdateTrip, deleteTrip as apiDeleteTrip } from "@/lib/sheetsApi";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import KPICards from "@/components/dashboard/KPICards";
@@ -9,10 +9,11 @@ import TripFormModal from "@/components/dashboard/TripFormModal";
 import TripDetailModal from "@/components/dashboard/TripDetailModal";
 import AnalyticsCharts from "@/components/dashboard/AnalyticsCharts";
 import SourceAnalysis from "@/components/dashboard/SourceAnalysis";
+import AdvancedViewControl from "@/components/dashboard/AdvancedViewControl";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const [trips, setTrips] = useState<Trip[]>(mockTrips);
+  const [trips, setTrips] = useState<Trip[]>(() => generateMockTrips(47));
   const [activeTab, setActiveTab] = useState("overview");
   const [formOpen, setFormOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
@@ -27,13 +28,22 @@ const Index = () => {
       try {
         setLoading(true);
         const data = await fetchTrips();
+        console.log("Fetched trips:", data.length);
         if (data.length > 0) {
+          console.log("Sample trip date:", data[0].tripCreationDate, "Status:", data[0].tripStatus);
           setTrips(data);
-          toast({ title: "Data loaded", description: `Showing ${data.length} trips. (API: ${data === mockTrips ? 'Mock data' : 'Google Sheets'})` });
+          toast({ title: "Data loaded", description: `Showing ${data.length} trips from ${data.length < 10 ? 'API' : 'Mock Data'}` });
+        } else {
+          console.warn("No trips returned from fetchTrips");
+          const fallbackTrips = generateMockTrips(47);
+          console.log("Generated fallback trips:", fallbackTrips.length);
+          setTrips(fallbackTrips);
         }
       } catch (err) {
         console.error("Failed to fetch trips:", err);
-        setTrips(mockTrips);
+        const fallbackTrips = generateMockTrips(47);
+        console.log("Generated error fallback trips:", fallbackTrips.length);
+        setTrips(fallbackTrips);
       } finally {
         setLoading(false);
       }
@@ -67,7 +77,7 @@ const Index = () => {
   const handleDelete = useCallback(async (trip: Trip) => {
     setTrips((prev) => prev.filter((t) => t.tripId !== trip.tripId));
     toast({ title: "Trip deleted", description: `${trip.tripId} has been removed.` });
-    try { await apiDeleteTrip(trip.sNo); } catch (e) { console.error("Delete API error:", e); }
+    try { await apiDeleteTrip(String(trip.sNo)); } catch (e) { console.error("Delete API error:", e); }
   }, [toast]);
 
   const handleSave = useCallback(async (trip: Trip) => {
@@ -101,18 +111,22 @@ const Index = () => {
     <DashboardLayout activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setSelectedStatus(null); }} onNewTrip={handleNewTrip}>
       <div className="space-y-6">
         <div className="animate-fade-in">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {activeTab === "overview" && "Dashboard Overview"}
-            {activeTab === "trips" && "Trip Management"}
-            {activeTab === "by-source" && "Shipments by Source"}
-            {activeTab === "analytics" && "Analytics & Reports"}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {activeTab === "overview" && "Monitor your logistics operations at a glance"}
-            {activeTab === "trips" && "View, create, and manage all trip records"}
-            {activeTab === "by-source" && "Analyze shipments by their origin locations"}
-            {activeTab === "analytics" && "Insights and performance metrics"}
-          </p>
+          {activeTab !== "shahi" && activeTab !== "comprehensive" && (
+            <>
+              <h2 className="text-2xl font-bold tracking-tight">
+                {activeTab === "overview" && "Dashboard Overview"}
+                {activeTab === "trips" && "Trip Management"}
+                {activeTab === "by-source" && "Shipments by Source"}
+                {activeTab === "analytics" && "Analytics & Reports"}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {activeTab === "overview" && "Monitor your logistics operations at a glance"}
+                {activeTab === "trips" && "View, create, and manage all trip records"}
+                {activeTab === "by-source" && "Analyze shipments by their origin locations"}
+                {activeTab === "analytics" && "Insights and performance metrics"}
+              </p>
+            </>
+          )}
         </div>
 
         {loading && (
@@ -135,6 +149,7 @@ const Index = () => {
             )}
             {activeTab === "by-source" && <SourceAnalysis trips={trips} />}
             {(activeTab === "overview" || activeTab === "analytics") && <AnalyticsCharts trips={trips} />}
+            {activeTab === "shahi" && <AdvancedViewControl />}
           </>
         )}
       </div>

@@ -1,5 +1,11 @@
+import { useMemo } from "react";
 import { Trip } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface TripDetailModalProps {
@@ -8,94 +14,194 @@ interface TripDetailModalProps {
   trip: Trip | null;
 }
 
-// Calculate delay in days
-function calculateDelay(pickupRaisedOn: string, actualPickupDate: string): number | null {
-  if (!pickupRaisedOn || !actualPickupDate) return null;
-  
+/* =========================
+   DATE UTILS
+========================= */
+
+function parseDDMMYYYY(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+
+  // Handle DD/MM/YYYY format
+  if (dateStr.includes("/")) {
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return null;
+
+    const day = Number(parts[0]);
+    const month = Number(parts[1]);
+    const year = Number(parts[2]);
+
+    if (
+      !day ||
+      !month ||
+      !year ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31
+    )
+      return null;
+
+    const date = new Date(year, month - 1, day);
+
+    // Extra validation to prevent invalid rollovers
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  }
+
+  // Handle ISO format (YYYY-MM-DD or full ISO string)
   try {
-    // Parse DD/MM/YYYY format
-    const parseDate = (dateStr: string) => {
-      const parts = dateStr.split("/");
-      if (parts.length !== 3) return null;
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month - 1, day); // month is 0-indexed in Date
-    };
-    
-    const raised = parseDate(pickupRaisedOn);
-    const actual = parseDate(actualPickupDate);
-    
-    if (!raised || !actual) return null;
-    
-    const diffTime = actual.getTime() - raised.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }
 }
 
+function calculateDelay(
+  raisedOn?: string,
+  actualPickup?: string
+): number | null {
+  const raised = parseDDMMYYYY(raisedOn);
+  const actual = parseDDMMYYYY(actualPickup);
+
+  if (!raised || !actual) return null;
+
+  const diff =
+    (actual.getTime() - raised.getTime()) /
+    (1000 * 60 * 60 * 24);
+
+  if (diff < 0) return 0; // early pickup = 0 delay
+
+  return Math.ceil(diff);
+}
+
+/* =========================
+   STATUS STYLES
+========================= */
+
 const statusBadgeClass: Record<string, string> = {
-  Completed: "status-badge-completed",
-  "In-Transit": "status-badge-in-transit",
-  Mapped: "bg-yellow-500/20 text-yellow-500",
-  "Trip Not Created": "bg-gray-500/20 text-gray-400",
+  "Trip Completed":
+    "bg-green-100 text-green-700 border border-green-200",
+  "In Transit":
+    "bg-blue-100 text-blue-700 border border-blue-200",
+  "Awaiting to Departure":
+    "bg-yellow-100 text-yellow-700 border border-yellow-200",
+  "Trip Not Created":
+    "bg-red-100 text-red-700 border border-red-200",
 };
 
-export default function TripDetailModal({ open, onClose, trip }: TripDetailModalProps) {
-  if (!trip) return null;
+export default function TripDetailModal({
+  open,
+  onClose,
+  trip,
+}: TripDetailModalProps) {
+  const delay = useMemo(
+    () =>
+      trip
+        ? calculateDelay(
+            trip.pickupRaisedOn,
+            trip.actualPickupDate
+          )
+        : null,
+    [trip]
+  );
 
-  const delay = calculateDelay(trip.pickupRaisedOn, trip.actualPickupDate);
-
-  const fields: [string, string | number | null][] = [
-    ["Trip ID", trip.tripId],
-    ["Vehicle No.", trip.vehicleNo],
-    ["Asset Tracker", trip.assetTracker],
-    ["Transporter", trip.transporterName],
-    ["Source", trip.sourceAddress],
-    ["Destination", trip.destinationAddress],
-    ["Trip Created", trip.tripCreationDate],
-    ["Trip Completed", trip.tripCompletionDate || "—"],
-    ["Pickup Raised On", trip.pickupRaisedOn],
-    ["Actual Pickup", trip.actualPickupDate || "—"],
-    ["Delivered", trip.deliveredDate || "—"],
-    ["Packet Status", trip.packetStatus],
-    ["Task ID", trip.taskId],
-    ["Zoho Ticket", trip.zohoTicketId],
-    ["Remarks", trip.remarks || "—"],
-  ];
-
-  const getDelayColor = (delayDays: number | null) => {
-    if (delayDays === null) return "text-muted-foreground";
-    return delayDays < 5 ? "text-green-500" : "text-red-500";
+  const getDelayColor = (d: number | null) => {
+    if (d === null) return "text-muted-foreground";
+    if (d <= 3) return "text-green-500";
+    return "text-red-500";
   };
+
+  const fields: [string, string | number | undefined][] =
+    trip
+      ? [
+          ["Trip ID", trip.tripId],
+          ["Vehicle No.", trip.vehicleNo],
+          ["Asset Tracker", trip.assetTracker],
+          ["Transporter", trip.transporterName],
+          ["Source", trip.sourceAddress],
+          ["Destination", trip.destinationAddress],
+          ["Trip Created", trip.tripCreationDate],
+          ["Trip Completed", trip.tripCompletionDate],
+          ["Pickup Raised On", trip.pickupRaisedOn],
+          ["Actual Pickup", trip.actualPickupDate],
+          ["Delivered", trip.deliveredDate],
+          ["Packet Status", trip.packetStatus],
+          ["Task ID", trip.taskId],
+          ["Zoho Ticket", trip.zohoTicketId],
+          ["Remarks", trip.remarks],
+        ]
+      : [];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg bg-card border-border">
+      <DialogContent className="max-w-2xl bg-white shadow-xl border">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <DialogTitle className="text-lg">Trip Details</DialogTitle>
-            <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", statusBadgeClass[trip.tripStatus])}>
-              {trip.tripStatus}
-            </span>
+          <div className="flex items-center justify-between border-b pb-3">
+            <DialogTitle className="text-xl font-bold">
+              Trip Details
+            </DialogTitle>
+
+            {trip && (
+              <span
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-semibold",
+                  statusBadgeClass[trip.tripStatus] ??
+                    "bg-gray-200 text-gray-700"
+                )}
+              >
+                {trip.tripStatus}
+              </span>
+            )}
           </div>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
-          {fields.map(([label, value]) => (
-            <div key={label} className={label === "Remarks" ? "col-span-2" : ""}>
-              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
-              <p className="text-sm mt-0.5">{value}</p>
-            </div>
-          ))}
-          <div>
-            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Delay (Days)</p>
-            <p className={cn("text-sm mt-0.5 font-semibold", getDelayColor(delay))}>
-              {delay !== null ? `${delay} days` : "—"}
-            </p>
+
+        {!trip ? (
+          <div className="py-10 text-center text-muted-foreground">
+            No trip selected
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-8 gap-y-4 mt-6">
+            {fields.map(([label, value]) => (
+              <div
+                key={label}
+                className={
+                  label === "Remarks"
+                    ? "col-span-2 bg-slate-50 p-3 rounded-lg"
+                    : "p-2"
+                }
+              >
+                <p className="text-xs text-slate-500 font-semibold uppercase mb-1">
+                  {label}
+                </p>
+                <p className="text-sm font-medium text-slate-800">
+                  {value || "—"}
+                </p>
+              </div>
+            ))}
+
+            <div className="p-2">
+              <p className="text-xs text-slate-500 font-semibold uppercase mb-1">
+                Delay (Days)
+              </p>
+              <p
+                className={cn(
+                  "text-sm font-bold",
+                  getDelayColor(delay)
+                )}
+              >
+                {delay !== null ? `${delay} days` : "—"}
+              </p>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

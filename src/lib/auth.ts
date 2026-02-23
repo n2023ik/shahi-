@@ -1,4 +1,6 @@
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_AUTH_URL ?? "";
+import { config } from "./config";
+
+const APPS_SCRIPT_URL = config.google.authUrl || "";
 const isDev = import.meta.env.DEV;
 
 /* ============================
@@ -33,7 +35,20 @@ export async function verifyTokenWithBackend(
   token: string
 ): Promise<{ authorized: boolean; error?: string }> {
   if (!APPS_SCRIPT_URL) {
+    devLog("⚠️ Auth backend URL not configured - allowing in development mode");
+    if (isDev) {
+      return { authorized: true };
+    }
     return { authorized: false, error: "Backend URL not configured." };
+  }
+
+  // Development bypass if using wrong URL
+  if (APPS_SCRIPT_URL.includes("NOT_CONFIGURED") || APPS_SCRIPT_URL === "") {
+    devLog("⚠️ Auth URL is NOT_CONFIGURED - bypassing in dev mode");
+    if (isDev) {
+      return { authorized: true };
+    }
+    return { authorized: false, error: "Authentication not configured." };
   }
 
   try {
@@ -57,6 +72,15 @@ export async function verifyTokenWithBackend(
 
     devLog("Backend raw response:", trimmed);
 
+    // Check if we got a JSON error (wrong Apps Script endpoint)
+    if (trimmed.includes('"error"') && trimmed.includes('token')) {
+      devError("⚠️ Auth endpoint is returning data API response. Check VITE_APPS_SCRIPT_AUTH_URL");
+      return {
+        authorized: false,
+        error: "Authentication not configured. Using Auth.gs URL instead of DashboardData.gs URL.",
+      };
+    }
+
     // Parse legacy format support
     if (trimmed.startsWith("UNAUTHORIZED|")) {
       const email = trimmed.split("|")[1];
@@ -76,6 +100,12 @@ export async function verifyTokenWithBackend(
     };
   } catch (err) {
     devError("Verification failed:", err);
+
+    // Development bypass on auth failure
+    if (isDev) {
+      devLog("⚠️ Auth failed but allowing in development mode");
+      return { authorized: true };
+    }
 
     return {
       authorized: false,
