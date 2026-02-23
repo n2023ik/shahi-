@@ -14,7 +14,8 @@ import {
   calculateDaysFromToday,
 } from "@/lib/metricsEngine";
 import { fetchDashboardData } from "@/lib/dashboardApi";
-import { generateMockTrips, generateMockDashboardData } from "@/lib/mockData";
+import { isNetworkError } from "@/lib/networkUtils";
+import { NoInternet } from "@/components/NoInternet";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ export default function ComprehensiveLogisticsDashboard() {
   const [locations, setLocations] = useState<LocationMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isNetworkOffline, setIsNetworkOffline] = useState(false);
   const [activeTab, setActiveTab] = useState("summary");
   const { toast } = useToast();
 
@@ -52,49 +55,49 @@ export default function ComprehensiveLogisticsDashboard() {
   });
 
   /**
-   * Load data from API or use mock data
+   * Load data from API - shows network error if connection is lost
    */
   const loadData = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
       else setRefreshing(true);
+      
+      setError(null);
+      setIsNetworkOffline(false);
 
-      // Try to fetch real data
-      try {
-        const dashboardData = await fetchDashboardData();
-        setLocations(dashboardData.locations);
-        
-        // If we have real data, we might not have trips yet
-        // For now, use mock trips combined with real location data
-        const mockTrips = generateMockTrips(100);
-        setTrips(mockTrips);
+      // Fetch real data from API
+      const dashboardData = await fetchDashboardData();
+      setLocations(dashboardData.locations);
+      
+      // TODO: Fetch trips from API when available
+      // For now, set empty trips array
+      setTrips([]);
 
+      toast({
+        title: "Dashboard loaded",
+        description: `Loaded ${dashboardData.locations.length} locations`,
+      });
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+      
+      // Check if it's a network error
+      if (isNetworkError(err)) {
+        setIsNetworkOffline(true);
+        setError("No internet connection");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      }
+      
+      setLocations([]);
+      setTrips([]);
+
+      if (!isNetworkError(err)) {
         toast({
-          title: "Dashboard loaded",
-          description: `Loaded ${dashboardData.locations.length} locations and ${mockTrips.length} trips`,
-        });
-      } catch (error) {
-        // Fallback to mock data
-        console.warn("Using mock data:", error);
-        const mockData = generateMockDashboardData();
-        const mockTrips = generateMockTrips(100);
-        
-        setLocations(mockData.locations);
-        setTrips(mockTrips);
-
-        toast({
-          title: "Mock data loaded",
-          description: "Using sample data for demonstration",
-          variant: "default",
+          title: "Error loading dashboard",
+          description: err instanceof Error ? err.message : "Failed to load data",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error);
-      toast({
-        title: "Error loading dashboard",
-        description: "Failed to load data. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -257,6 +260,36 @@ export default function ComprehensiveLogisticsDashboard() {
                 Calculating comprehensive metrics...
               </p>
             </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show NoInternet component when network is offline
+  if (isNetworkOffline) {
+    return (
+      <DashboardLayout activeTab="comprehensive" onTabChange={() => {}} onNewTrip={() => {}}>
+        <NoInternet onRetry={() => loadData(true)} />
+      </DashboardLayout>
+    );
+  }
+
+  // Show error message for other errors
+  if (error && !isNetworkOffline) {
+    return (
+      <DashboardLayout activeTab="comprehensive" onTabChange={() => {}} onNewTrip={() => {}}>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4 max-w-md">
+            <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
+            <div>
+              <p className="text-lg font-medium">Failed to Load Dashboard</p>
+              <p className="text-sm text-muted-foreground mt-2">{error}</p>
+            </div>
+            <Button onClick={() => loadData(true)} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
           </div>
         </div>
       </DashboardLayout>

@@ -6,6 +6,8 @@ import {
   ChevronDown, Download, BarChart3
 } from 'lucide-react';
 import { fetchTrips } from '@/lib/sheetsApi';
+import { isNetworkError } from '@/lib/networkUtils';
+import { NoInternet, NoInternetBanner } from '@/components/NoInternet';
 
 /**
  * CUSTOM HOOK: useDebounce
@@ -22,15 +24,15 @@ function useDebounce(value, delay) {
 }
 
 /**
- * MOCK DATA & API FALLBACK
- * Since the user environment uses external APIs, we provide a robust
- * fetching pattern with fallback logic.
+ * DASHBOARD WITH NETWORK ERROR HANDLING
+ * Shows proper error states when internet connection is lost
+ * Never shows mock data - only real data or error messages
  */
 const ShahiDashboard = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isActualData, setIsActualData] = useState(false);
+  const [isNetworkOffline, setIsNetworkOffline] = useState(false);
   
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,30 +53,37 @@ const ShahiDashboard = () => {
   const [showKpiModal, setShowKpiModal] = useState(false);
 
   // Load Data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Use the proper fetchTrips function which has mock data fallback
-        const data = await fetchTrips();
-        
-        // Check if we got actual data or mock data
-        setIsActualData(data.length > 0 && data[0].tripId !== undefined);
-        setTrips(Array.isArray(data) ? data : []);
-        
-        if (data.length === 0) {
-          setError("No trip data available. API may not be configured.");
-        }
-      } catch (err) {
-        console.error("Failed to load trips:", err);
-        setError("Failed to sync with Google Sheets. Using fallback data.");
-        setTrips([]);
-      } finally {
-        setLoading(false);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setIsNetworkOffline(false);
+      
+      // Fetch trips from API - will throw error if network is down
+      const data = await fetchTrips();
+      
+      setTrips(Array.isArray(data) ? data : []);
+      
+      if (data.length === 0) {
+        setError("No trip data available.");
       }
-    };
+    } catch (err) {
+      console.error("Failed to load trips:", err);
+      
+      // Check if it's a network error
+      if (isNetworkError(err)) {
+        setIsNetworkOffline(true);
+        setError("No internet connection");
+      } else {
+        setError(err.message || "Failed to load trip data");
+      }
+      setTrips([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -254,8 +263,35 @@ const ShahiDashboard = () => {
     );
   }
 
+  // Show NoInternet component when network is offline
+  if (isNetworkOffline) {
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <header className="bg-slate-900 border-b border-slate-800 px-4 md:px-8 py-4">
+          <div className="max-w-[1600px] mx-auto flex items-center gap-2">        
+            <div className="bg-blue-600 p-1.5 rounded-lg">      
+              <Truck className="text-white w-5 h-5" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-100">Shahi Logistics Monitor</h1>
+          </div>
+        </header>
+        <NoInternet onRetry={loadData} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans pb-20">
+      {/* Show banner if there's an error but not a network error */}
+      {error && !isNetworkOffline && (
+        <div className="bg-yellow-900/20 border-b border-yellow-500/50 p-4">
+          <div className="max-w-[1600px] mx-auto flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-500" />
+            <p className="text-yellow-200">{error}</p>
+          </div>
+        </div>
+      )}
+      
       {/* Header Section */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 md:px-8 py-4">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">        
@@ -267,9 +303,9 @@ const ShahiDashboard = () => {
               <h1 className="text-2xl font-bold text-slate-800">Shahi Logistics Monitor</h1>
             </div>
             <div className="flex items-center gap-3">
-              <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${isActualData ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
-                <span className={`w-2 h-2 rounded-full ${isActualData ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>  
-                {isActualData ? 'Live Connection' : 'Offline Mode'}
+              <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${trips.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                <span className={`w-2 h-2 rounded-full ${trips.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>  
+                {trips.length > 0 ? 'Live Connection' : 'No Data'}
               </span>
               <span className="text-slate-400 text-xs font-medium">Last Sync: {new Date().toLocaleTimeString()}</span>
             </div>

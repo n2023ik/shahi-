@@ -1,6 +1,6 @@
 import { Trip, TripStatus, StockDeficiency } from "./types";
-import { mockTrips, generateMockTrips } from "./mockData";
-import { config, getAppsScriptUrl, isGoogleConfigured } from "./config";
+import { config, getAppsScriptUrl } from "./config";
+import { NetworkError, ConfigurationError } from "./networkUtils";
 
 // Get Apps Script URL from centralized config
 const APPS_SCRIPT_URL = getAppsScriptUrl();
@@ -31,6 +31,11 @@ async function callAppsScript(
   const timeoutId = setTimeout(() => controller.abort(), config.api.timeout);
 
   try {
+    // Check if online before making request
+    if (!navigator.onLine) {
+      throw new NetworkError("No internet connection");
+    }
+
     let url = APPS_SCRIPT_URL;
     let init: RequestInit = {
       signal: controller.signal,
@@ -87,7 +92,7 @@ async function callAppsScript(
       return JSON.parse(responseText);
     } catch (jsonError) {
       console.error("❌ Invalid JSON response from Apps Script:", responseText.substring(0, 200));
-      throw new Error(
+      throw new ConfigurationError(
         `Apps Script returned invalid JSON. Response starts with: "${responseText.substring(0, 50)}...". ` +
         `This might indicate: 1) Wrong Apps Script URL, 2) Script not deployed, or 3) Invalid response format. ` +
         `Check: 1) VITE_GOOGLE_SHEETS_API_URL in .env, 2) Google Apps Script deployed with "Execute as me" and "Anyone" access`
@@ -96,13 +101,19 @@ async function callAppsScript(
   } catch (error) {
     clearTimeout(timeoutId);
 
-    // Better error messaging
+    // Convert network-related errors to NetworkError
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new NetworkError("Request timeout - check your internet connection");
+    }
+
+    // Better error messaging for network errors
     if (error instanceof TypeError) {
-      console.error(
-        "❌ Network Error: Could not reach Google Apps Script.\n" +
-        "Fix: 1) Check VITE_GOOGLE_SHEETS_API_URL in .env, 2) Verify deployment URL is correct, " +
-        "3) Check browser console for CORS errors"
-      );
+      throw new NetworkError("Network request failed - check your internet connection");
     }
 
     console.error("Apps Script call failed:", error);
@@ -184,9 +195,16 @@ function formatDate(val: string | any): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapObjectToTrip(row: any, index: number): Trip {
+  const tripCreationDateRaw = String(row["Trip Creation Date"] || row.tripCreationDate || "").trim();
+  
+  // Check if Trip Creation Date contains "Trip Not Created" text
+  const isNotCreated = tripCreationDateRaw.toLowerCase().includes("not created") || 
+                       tripCreationDateRaw.toLowerCase().includes("trip not created");
+  
   const trip = {
     sNo: row["S.No."] || row.sNo || index + 1,
-    tripCreationDate: formatDate(row["Trip Creation Date"] || row.tripCreationDate || ""),
+    // Keep "Trip Not Created" text as-is, otherwise format the date
+    tripCreationDate: isNotCreated ? tripCreationDateRaw : formatDate(tripCreationDateRaw),
     tripCompletionDate: formatDate(row["Trip Completion Date"] || row.tripCompletionDate || ""),
     tripId: row["Trip Id"] || row.tripId || "",
     vehicleNo: row["Vehicle No."] || row.vehicleNo || "",
@@ -194,7 +212,8 @@ function mapObjectToTrip(row: any, index: number): Trip {
     sourceAddress: row["Source Address"] || row.sourceAddress || "",
     destinationAddress: row["Destination Address"] || row.destinationAddress || "",
     transporterName: row["Transporter Name"] || row.transporterName || "",
-    tripStatus: normalizeTripStatus(row["Trip status"] || row.tripStatus || ""),
+    // If Trip Creation Date has "Not Created" text, override trip status
+    tripStatus: isNotCreated ? "Trip Not Created" : normalizeTripStatus(row["Trip status"] || row.tripStatus || ""),
     packetStatus: row["Packet Status"] || row.packetStatus || "",
     pickupRaisedOn: formatDate(row["Pick-up Raised On"] || row.pickupRaisedOn || ""),
     taskId: row["Task ID"] || row.taskId || "",
@@ -211,6 +230,7 @@ function mapObjectToTrip(row: any, index: number): Trip {
     console.log("[mapObjectToTrip] Date fields mapping:");
     console.log("  - Trip Creation Date input:", row["Trip Creation Date"], "→ output:", trip.tripCreationDate);
     console.log("  - Trip Completion Date input:", row["Trip Completion Date"], "→ output:", trip.tripCompletionDate);
+    console.log("  - Is Not Created:", isNotCreated, "→ Trip Status:", trip.tripStatus);
   }
 
   return trip;
@@ -224,15 +244,13 @@ export async function fetchTrips(): Promise<Trip[]> {
   try {
     // Check if Apps Script URL is configured
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
-      console.warn(
-        "⚠️ Google Apps Script not configured.\n" +
-        "Using mock trip data. To connect to Google Sheets:\n" +
-        "1. Deploy your Apps Script as a Web App\n" +
-        "2. Add VITE_GOOGLE_SHEETS_API_URL to .env file\n" +
+      throw new ConfigurationError(
+        "Google Apps Script not configured. " +
+        "To connect to Google Sheets: " +
+        "1. Deploy your Apps Script as a Web App, " +
+        "2. Add VITE_GOOGLE_SHEETS_API_URL to .env file. " +
         "See GOOGLE_SHEETS_SETUP.md for instructions."
       );
-      // Return freshly generated mock trips with current dates
-      return generateMockTrips(47);
     }
 
     console.log("[fetchTrips] Calling Google Apps Script...");
@@ -249,9 +267,8 @@ export async function fetchTrips(): Promise<Trip[]> {
     }
 
     if (!Array.isArray(tripsData)) {
-      console.warn("⚠️ Unexpected response format:", result);
-      console.warn("ℹ️ Falling back to mock data");
-      return generateMockTrips(47);
+      console.error("⚠️ Unexpected response format:", result);
+      throw new Error("Invalid trip data format received from server");
     }
 
     console.log(`[fetchTrips] Got ${tripsData.length} raw trip records from API`);
@@ -260,17 +277,37 @@ export async function fetchTrips(): Promise<Trip[]> {
       console.log("[fetchTrips] First raw record:", tripsData[0]);
     }
 
-    const allTrips = tripsData.map((row, index) => {
-      const trip = mapObjectToTrip(row, index);
-      if (index === 0) {
-        console.log("[fetchTrips] First mapped trip:", trip);
-      }
-      return trip;
-    });
+    const allTrips = tripsData
+      .map((row, index) => {
+        const trip = mapObjectToTrip(row, index);
+        if (index === 0) {
+          console.log("[fetchTrips] First mapped trip:", trip);
+        }
+        // Log "Trip Not Created" entries for debugging
+        if (trip.tripStatus === "Trip Not Created") {
+          console.log(`[fetchTrips] Found "Trip Not Created" - S.No: ${trip.sNo}, Trip ID: ${trip.tripId}, Date: "${trip.tripCreationDate}"`);
+        }
+        return trip;
+      })
+      // Filter out trips that don't have S.No. and Trip Creation Date
+      // Note: "Trip Not Created" is considered valid (not empty)
+      .filter((trip) => {
+        const hasSerialNo = trip.sNo && trip.sNo > 0;
+        const tripDate = trip.tripCreationDate?.trim() || "";
+        
+        // Check if trip creation date exists (can be actual date or "Trip Not Created")
+        const hasTripCreationDate = tripDate !== "";
+        
+        if (!hasSerialNo || !hasTripCreationDate) {
+          console.log(`[fetchTrips] Excluding trip - S.No: ${trip.sNo}, Date: "${tripDate}", Trip ID: ${trip.tripId}`);
+          return false;
+        }
+        
+        return true;
+      });
 
-    // Don't filter out trips - keep all trips including "Trip Not Created" which may not have dates
     console.log(
-      `✅ Successfully loaded ${allTrips.length} trips from Google Sheets`
+      `✅ Successfully loaded ${allTrips.length} valid trips from Google Sheets (filtered from ${tripsData.length} total records)`
     );
     
     if (allTrips.length > 0) {
@@ -280,14 +317,13 @@ export async function fetchTrips(): Promise<Trip[]> {
     return allTrips;
   } catch (error) {
     console.error("❌ Failed to fetch trips from Google Sheets:", error);
-    console.warn("ℹ️ Using mock trip data as fallback");
-    console.warn(
-      "To fix this:\n" +
-      "1. Verify Apps Script deployment URL\n" +
-      "2. Check .env file configuration\n" +
-      "3. Ensure deployment has proper permissions"
-    );
-    return generateMockTrips(47);
+    
+    // Don't use mock data - throw the error so UI can handle it
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    throw new Error(`Failed to load trip data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -380,13 +416,12 @@ export async function fetchStockDeficiency(): Promise<StockDeficiency[]> {
   try {
     // Check if Apps Script URL is configured
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
-      console.warn(
-        "⚠️ Google Apps Script not configured.\n" +
-        "Using mock stock data. To connect to Google Sheets:\n" +
-        "1. Deploy your Apps Script as a Web App\n" +
+      throw new ConfigurationError(
+        "Google Apps Script not configured. " +
+        "To connect to Google Sheets: " +
+        "1. Deploy your Apps Script as a Web App, " +
         "2. Add VITE_GOOGLE_SHEETS_API_URL to .env file"
       );
-      return generateMockStockDeficiency();
     }
 
     // Fetch stock data using "getStockData" action
@@ -399,8 +434,8 @@ export async function fetchStockDeficiency(): Promise<StockDeficiency[]> {
     }
 
     if (!Array.isArray(stockData)) {
-      console.warn("⚠️ Unexpected stock data response format:", result);
-      return generateMockStockDeficiency();
+      console.error("⚠️ Unexpected stock data response format:", result);
+      throw new Error("Invalid stock data format received from server");
     }
 
     // Map and calculate stock deficiency
@@ -412,8 +447,13 @@ export async function fetchStockDeficiency(): Promise<StockDeficiency[]> {
     return deficiencies;
   } catch (error) {
     console.error("❌ Failed to fetch stock data from Google Sheets:", error);
-    console.warn("ℹ️ Using mock stock data as fallback");
-    return generateMockStockDeficiency();
+    
+    // Don't use mock data - throw the error so UI can handle it
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    throw new Error(`Failed to load stock data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

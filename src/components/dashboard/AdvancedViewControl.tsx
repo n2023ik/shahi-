@@ -100,6 +100,10 @@ export default function AdvancedViewControl() {
     status: "All",
   });
 
+  // Auto-refresh state
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(10); // seconds
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(true);
+
   // =========================================================================
   // LOAD DATA FROM GOOGLE SHEETS (via sheetsApi.ts - uses Google Apps Script)
   // =========================================================================
@@ -306,6 +310,20 @@ export default function AdvancedViewControl() {
   }, [stockDeficiency]);
 
   // =========================================================================
+  // AUTO-REFRESH EFFECT
+  // =========================================================================
+
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+
+    const interval = setInterval(() => {
+      loadData();
+    }, autoRefreshInterval * 1000); // Convert seconds to milliseconds
+
+    return () => clearInterval(interval); // Cleanup on unmount or interval change
+  }, [autoRefreshEnabled, autoRefreshInterval]);
+
+  // =========================================================================
   // EVENT HANDLERS
   // =========================================================================
 
@@ -481,19 +499,48 @@ export default function AdvancedViewControl() {
 
         {/* Loading & Last Update Info */}
         <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-          <div>
-            {loading && (
-              <span className="flex items-center gap-2">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                Loading data...
-              </span>
-            )}
-            {!loading && lastFetchTime && (
-              <span>
-                Last updated: {lastFetchTime.toLocaleTimeString()}
-              </span>
-            )}
+          <div className="flex items-center gap-4">
+            <div>
+              {loading && (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Loading data...
+                </span>
+              )}
+              {!loading && lastFetchTime && (
+                <span>
+                  Last updated: {lastFetchTime.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+            
+            {/* Auto-Refresh Toggle & Interval */}
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-300">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoRefreshEnabled}
+                  onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 cursor-pointer"
+                />
+                <span className="text-xs font-medium text-slate-600">Auto-Refresh</span>
+              </label>
+              {autoRefreshEnabled && (
+                <select
+                  value={autoRefreshInterval}
+                  onChange={(e) => setAutoRefreshInterval(Number(e.target.value))}
+                  className="text-xs px-2 py-1 rounded border border-slate-300 bg-white"
+                >
+                  <option value={5}>Every 5s</option>
+                  <option value={10}>Every 10s</option>
+                  <option value={30}>Every 30s</option>
+                  <option value={60}>Every 1m</option>
+                  <option value={300}>Every 5m</option>
+                </select>
+              )}
+            </div>
           </div>
+          
           <button
             onClick={handleRefresh}
             disabled={loading}

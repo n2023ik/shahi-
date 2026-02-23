@@ -1,6 +1,6 @@
 import { DashboardData, LocationMetrics, GlobalSummary } from "./types";
-import { mockDashboardData } from "./mockData";
-import { config, getAppsScriptUrl, isGoogleConfigured } from "./config";
+import { config, getAppsScriptUrl } from "./config";
+import { NetworkError, ConfigurationError, isNetworkError } from "./networkUtils";
 
 // Get Apps Script URL from centralized config
 const APPS_SCRIPT_URL = getAppsScriptUrl();
@@ -18,6 +18,11 @@ async function callAppsScript(
   const timeoutId = setTimeout(() => controller.abort(), config.api.timeout);
 
   try {
+    // Check if online before making request
+    if (!navigator.onLine) {
+      throw new NetworkError("No internet connection");
+    }
+
     let url = APPS_SCRIPT_URL;
     let init: RequestInit = { signal: controller.signal };
 
@@ -45,7 +50,7 @@ async function callAppsScript(
       return JSON.parse(responseText);
     } catch (jsonError) {
       console.error("❌ Invalid JSON response from Apps Script:", responseText.substring(0, 200));
-      throw new Error(
+      throw new ConfigurationError(
         `Apps Script returned invalid JSON. Response starts with: "${responseText.substring(0, 50)}...". ` +
         `This might indicate: 1) Wrong Apps Script URL, 2) Authentication redirect, or 3) CORS issue. ` +
         `Check your VITE_GOOGLE_SHEETS_API_URL in .env file.`
@@ -53,6 +58,22 @@ async function callAppsScript(
     }
   } catch (error) {
     clearTimeout(timeoutId);
+    
+    // Convert network-related errors to NetworkError
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new NetworkError("Request timeout - check your internet connection");
+    }
+    
+    // Handle fetch errors (network issues)
+    if (error instanceof TypeError) {
+      throw new NetworkError("Network request failed - check your internet connection");
+    }
+    
     console.error("Apps Script call failed:", error);
     throw error;
   }
@@ -138,15 +159,14 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   try {
     // Check if Apps Script URL is configured
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
-      console.warn(
-        "⚠️ Google Apps Script not configured. Using mock data.\n" +
-        "To connect to Google Sheets:\n" +
-        "1. Deploy DashboardData.gs as a Web App\n" +
-        "2. Create .env file with: VITE_GOOGLE_SHEETS_API_URL=your_deployment_url\n" +
-        "3. Restart the dev server\n" +
+      throw new ConfigurationError(
+        "Google Apps Script not configured. " +
+        "To connect to Google Sheets: " +
+        "1. Deploy DashboardData.gs as a Web App, " +
+        "2. Create .env file with: VITE_GOOGLE_SHEETS_API_URL=your_deployment_url, " +
+        "3. Restart the dev server. " +
         "See GOOGLE_SHEETS_SETUP.md for detailed instructions."
       );
-      return mockDashboardData;
     }
 
     // Fetch from the new unified API
@@ -185,20 +205,18 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       return { globalSummary, locations };
     }
 
-    // Return mock data if data format is unexpected
-    console.warn("⚠️ Unexpected response format, using mock data:", result);
-    return mockDashboardData;
+    // If data format is unexpected, throw error
+    throw new Error("Unexpected response format from server");
   } catch (error) {
     console.error("❌ Failed to fetch dashboard data:", error);
-    console.warn("ℹ️ Using mock dashboard data as fallback");
-    console.warn(
-      "To fix this:\n" +
-      "1. Check that DashboardData.gs is deployed as a Web App\n" +
-      "2. Verify VITE_GOOGLE_SHEETS_API_URL in .env file\n" +
-      "3. Ensure the deployment has 'Anyone' access\n" +
-      "See GOOGLE_SHEETS_SETUP.md for help."
-    );
-    return mockDashboardData;
+    
+    // Don't use mock data - throw the error so UI can handle it
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    // For other errors, wrap them
+    throw new Error(`Failed to load dashboard data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { DashboardData } from "@/lib/types";
 import { fetchDashboardData } from "@/lib/dashboardApi";
+import { isNetworkError } from "@/lib/networkUtils";
+import { NoInternet } from "@/components/NoInternet";
 import { calculateOverviewDashboardMetrics } from "@/lib/metricsEngine";
 import OverallMetrics from "./OverallMetrics";
 import SuccessRateCard from "./SuccessRateCard";
@@ -18,7 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +28,8 @@ export default function EnhancedDashboardContent() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isNetworkOffline, setIsNetworkOffline] = useState(false);
   const [activeView, setActiveView] = useState("overview");
   const { toast } = useToast();
 
@@ -38,6 +42,9 @@ export default function EnhancedDashboardContent() {
       try {
         if (showLoading) setLoading(true);
         else setRefreshing(true);
+        
+        setError(null);
+        setIsNetworkOffline(false);
 
         const data = await fetchDashboardData();
         setDashboardData(data);
@@ -48,14 +55,23 @@ export default function EnhancedDashboardContent() {
             description: `Loaded data for ${data.locations?.length ?? 0} locations`,
           });
         }
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error);
-        toast({
-          title: "Error loading dashboard",
-          description:
-            "Failed to fetch data. Please verify API / Apps Script configuration.",
-          variant: "destructive",
-        });
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+        
+        // Check if it's a network error
+        if (isNetworkError(err)) {
+          setIsNetworkOffline(true);
+          setError("No internet connection");
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+          toast({
+            title: "Error loading dashboard",
+            description: err instanceof Error ? err.message : "Failed to fetch data",
+            variant: "destructive",
+          });
+        }
+        
+        setDashboardData(null);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -105,6 +121,30 @@ export default function EnhancedDashboardContent() {
         <div className="text-center">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
           <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show NoInternet component when network is offline
+  if (isNetworkOffline) {
+    return <NoInternet onRetry={() => loadData(true)} />;
+  }
+
+  // Show error message for other errors
+  if (error && !isNetworkOffline) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-4 max-w-md">
+          <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
+          <div>
+            <p className="text-lg font-medium">Failed to Load Dashboard</p>
+            <p className="text-sm text-muted-foreground mt-2">{error}</p>
+          </div>
+          <Button onClick={() => loadData(true)} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
         </div>
       </div>
     );
