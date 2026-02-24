@@ -9,7 +9,7 @@
  * - Responsive design with Tailwind CSS & Lucide-React icons
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Package,
   Truck,
@@ -26,7 +26,7 @@ import {
   TrendingDown,
   X,
 } from "lucide-react";
-import { Trip, StockDeficiency, DeviceUtilization, OverallDeviceMetrics } from "@/lib/types";
+import { Trip, StockDeficiency, DeviceUtilization, OverallDeviceMetrics, PickupStatusMetrics } from "@/lib/types";
 import { fetchTrips, fetchStockDeficiency } from "@/lib/sheetsApi";
 
 // Add this helper function at the top (after imports)
@@ -74,6 +74,8 @@ interface DashboardMetrics {
   delivered: number;
   pending: number;
   awaitingDeparture: number;
+  pickupRaisedInternally: number;
+  pickupCompleted: number;
   other: number;
 }
 
@@ -108,7 +110,7 @@ export default function AdvancedViewControl() {
   // LOAD DATA FROM GOOGLE SHEETS (via sheetsApi.ts - uses Google Apps Script)
   // =========================================================================
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -141,7 +143,7 @@ export default function AdvancedViewControl() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // =========================================================================
   // LOAD DATA ON COMPONENT MOUNT
@@ -226,6 +228,8 @@ export default function AdvancedViewControl() {
       delivered: 0,
       pending: 0,
       awaitingDeparture: 0,
+      pickupRaisedInternally: 0,
+      pickupCompleted: 0,
       other: 0,
     };
 
@@ -240,21 +244,31 @@ export default function AdvancedViewControl() {
         return; // Skip agar Trip Creation Date empty hai
       }
 
-      const statusLower = trip.tripStatus?.toLowerCase() || "";
-      const packetLower = trip.packetStatus?.toLowerCase() || ""; 
+      const statusLower = trip.tripStatus?.toLowerCase().trim() || "";
+      const packetLower = trip.packetStatus?.toLowerCase().trim() || ""; 
 
       if (statusLower.includes("completed")) metrics.completed++; 
       else if (statusLower.includes("transit")) metrics.inTransit++;
       else if (statusLower.includes("awaiting")) metrics.awaitingDeparture++;
 
       if (packetLower.includes("delivered")) metrics.delivered++; 
-      else if (packetLower.includes("pending")) metrics.pending++;
+      else if (packetLower.includes("pending") || packetLower === "pending confirmation") metrics.pending++;
       else if (!packetLower || packetLower === "-") metrics.other++;
 
       // Pickup Delay
       const delayDays = calculatePickupDelay(trip.pickupRaisedOn, trip.actualPickupDate);
       if (delayDays !== null && delayDays > 3) {
         metrics.pickupDelay++;
+      }
+
+      // Pickup Raised Internally (if pickupRaisedOn date exists)
+      if (trip.pickupRaisedOn && trip.pickupRaisedOn.trim() && trip.pickupRaisedOn !== "-") {
+        metrics.pickupRaisedInternally++;
+      }
+
+      // Pickup Completed (if actualPickupDate exists)
+      if (trip.actualPickupDate && trip.actualPickupDate.trim() && trip.actualPickupDate !== "-") {
+        metrics.pickupCompleted++;
       }
     });
 
@@ -310,6 +324,71 @@ export default function AdvancedViewControl() {
   }, [stockDeficiency]);
 
   // =========================================================================
+  // CALCULATE SOURCE-WISE PICKUP STATUS METRICS
+  // =========================================================================
+
+  const calculatePickupStatusMetrics = useMemo((): PickupStatusMetrics => {
+    const sourceMap = new Map<string, { pickupRaised: number; pickupDone: number }>();
+    
+    // Debug: Log first few trips and their packet statuses
+    if (filteredTrips.length > 0) {
+      console.log(`[calculatePickupStatusMetrics] Processing ${filteredTrips.length} filtered trips`);
+      filteredTrips.slice(0, 5).forEach((trip, idx) => {
+        console.log(`[Trip ${idx}] ID: ${trip.tripId}, packetStatus: "${trip.packetStatus}", destination: "${trip.destinationAddress}"`);
+      });
+    }
+
+    filteredTrips.forEach((trip) => {
+      // Get source (using destinationAddress as per Google Sheets column G)
+      const source = trip.destinationAddress || "Unknown";
+      
+      if (!sourceMap.has(source)) {
+        sourceMap.set(source, { pickupRaised: 0, pickupDone: 0 });
+      }
+
+      const metrics = sourceMap.get(source)!;
+
+      // Check Packet Status for "Pickup Raised" or "Pickup Done" (case-insensitive, trim whitespace)
+      const status = trip.packetStatus?.toLowerCase().trim() || "";
+      
+      if (status === "pickup raised") {
+        metrics.pickupRaised++;
+      }
+
+      if (status === "pickup done") {
+        metrics.pickupDone++;
+      }
+    });
+
+    // Convert map to array and sort by total trips
+    const sourceBreakdown = Array.from(sourceMap.entries())
+      .map(([source, metrics]) => ({
+        source,
+        pickupRaised: metrics.pickupRaised,
+        pickupDone: metrics.pickupDone,
+        total: metrics.pickupRaised + metrics.pickupDone,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    // Calculate totals
+    const totalPickupRaised = sourceBreakdown.reduce((sum, s) => sum + s.pickupRaised, 0);
+    const totalPickupDone = sourceBreakdown.reduce((sum, s) => sum + s.pickupDone, 0);
+
+    console.log(`[calculatePickupStatusMetrics] Source Breakdown:`, sourceBreakdown);
+    console.log(`[calculatePickupStatusMetrics] Totals - Raised: ${totalPickupRaised}, Done: ${totalPickupDone}`);
+
+    return {
+      sourceBreakdown,
+      totalPickupRaised,
+      totalPickupDone,
+    };
+  }, [filteredTrips]);
+
+  // =========================================================================
+  // AUTO-REFRESH EFFECT
+  // =========================================================================
+
+  // =========================================================================
   // AUTO-REFRESH EFFECT
   // =========================================================================
 
@@ -321,7 +400,7 @@ export default function AdvancedViewControl() {
     }, autoRefreshInterval * 1000); // Convert seconds to milliseconds
 
     return () => clearInterval(interval); // Cleanup on unmount or interval change
-  }, [autoRefreshEnabled, autoRefreshInterval]);
+  }, [autoRefreshEnabled, autoRefreshInterval, loadData]);
 
   // =========================================================================
   // EVENT HANDLERS
@@ -354,11 +433,14 @@ export default function AdvancedViewControl() {
 
   const getTripsForStatus = (status: string): Trip[] => {
     if (status === "total") return filteredTrips;
-    if (status === "intransit") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().includes("transit"));
-    if (status === "completed") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().includes("completed"));
-    if (status === "awaiting") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().includes("awaiting"));
-    if (status === "delivered") return filteredTrips.filter(t => t.packetStatus?.toLowerCase().includes("delivered"));
-    if (status === "pending") return filteredTrips.filter(t => t.packetStatus?.toLowerCase().includes("pending"));
+    if (status === "intransit") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("transit"));
+    if (status === "completed") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("completed"));
+    if (status === "awaiting") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("awaiting"));
+    if (status === "delivered") return filteredTrips.filter(t => t.packetStatus?.toLowerCase().trim().includes("delivered"));
+    if (status === "pending") return filteredTrips.filter(t => {
+      const pStatus = t.packetStatus?.toLowerCase().trim() || "";
+      return pStatus.includes("pending") || pStatus === "pending confirmation";
+    });
     
     // ✅ FIXED: Properly filter trips with pickup delay > 3 days
     if (status === "pickupdelay") {
@@ -366,6 +448,16 @@ export default function AdvancedViewControl() {
         const delayDays = calculatePickupDelay(trip.pickupRaisedOn, trip.actualPickupDate);
         return delayDays !== null && delayDays > 3;
       });
+    }
+
+    // Pickup Raised Internally
+    if (status === "pickupraisedinterally") {
+      return filteredTrips.filter(trip => trip.pickupRaisedOn && trip.pickupRaisedOn.trim() && trip.pickupRaisedOn !== "-");
+    }
+
+    // Pickup Completed
+    if (status === "pickupcompleted") {
+      return filteredTrips.filter(trip => trip.actualPickupDate && trip.actualPickupDate.trim() && trip.actualPickupDate !== "-");
     }
     
     if (status === "other") return filteredTrips.filter(t => !t.packetStatus || t.packetStatus === "-");
@@ -696,6 +788,67 @@ export default function AdvancedViewControl() {
             </div>
           </div>
         </button>
+      </div>
+
+      {/* Pickup Status Summary Cards */}
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Pickup Raised */}
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-amber-600">Total Pickup Raised</p>
+          <div className="mt-3 flex items-end justify-between">
+            <p className="text-3xl font-bold text-amber-700">
+              {calculatePickupStatusMetrics.totalPickupRaised}
+            </p>
+            <div className="rounded-lg bg-amber-100 p-3">
+              <Package className="h-5 w-5 text-amber-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Total Pickup Done */}
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-emerald-600">Total Pickup Done</p>
+          <div className="mt-3 flex items-end justify-between">
+            <p className="text-3xl font-bold text-emerald-700">
+              {calculatePickupStatusMetrics.totalPickupDone}
+            </p>
+            <div className="rounded-lg bg-emerald-100 p-3">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Pickups */}
+        <div className="rounded-lg bg-purple-50 border border-purple-200 p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-purple-600">Pending Pickups</p>
+          <div className="mt-3 flex items-end justify-between">
+            <p className="text-3xl font-bold text-purple-700">
+              {calculatePickupStatusMetrics.totalPickupRaised - calculatePickupStatusMetrics.totalPickupDone}
+            </p>
+            <div className="rounded-lg bg-purple-100 p-3">
+              <AlertCircle className="h-5 w-5 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Overall Rate */}
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-blue-600">Overall Rate</p>
+          <div className="mt-3 flex items-end justify-between">
+            <p className="text-3xl font-bold text-blue-700">
+              {calculatePickupStatusMetrics.totalPickupRaised > 0
+                ? (
+                    (calculatePickupStatusMetrics.totalPickupDone /
+                      calculatePickupStatusMetrics.totalPickupRaised) *
+                    100
+                  ).toFixed(1)
+                : "0"}%
+            </p>
+            <div className="rounded-lg bg-blue-100 p-3">
+              <TrendingDown className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* DEVICE UTILIZATION OVERVIEW - Overall Metrics */}
@@ -1335,7 +1488,6 @@ export default function AdvancedViewControl() {
           </div>
         )}
       </div>
-
       {/* Footer Info */}
       <div className="mt-6 text-center text-xs text-slate-500">
         <p>Displaying {filteredTrips.length} of {trips.length} trips</p>

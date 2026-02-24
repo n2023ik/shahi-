@@ -11,8 +11,8 @@ const SHEETS = {
   USERS: "AllowedUsers"
 };
 
-const DEFAULT_LIMIT = 500;
-const MAX_LIMIT = 2000;
+const DEFAULT_LIMIT = 100;  // Reduced from 500 to prevent "Argument too large" error
+const MAX_LIMIT = 500;      // Also reduced MAX_LIMIT for safety
 
 const DATE_COLUMNS = [
   "Trip Creation Date",
@@ -139,6 +139,20 @@ function getAllRows(sheetName, limit = DEFAULT_LIMIT, offset = 0) {
   limit = Math.min(limit, MAX_LIMIT);
 
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  
+  // Find columns that have at least some data (not all empty)
+  const dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const nonEmptyColIndices = [];
+  
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i] && headers[i].toString().trim() !== "") {
+      // Check if this column has any data
+      const hasData = dataRange.some(row => row[i] && row[i].toString().trim() !== "");
+      if (hasData) {
+        nonEmptyColIndices.push(i);
+      }
+    }
+  }
 
   const startRow = 2 + offset;
   const endRow = Math.min(startRow + limit - 1, lastRow);
@@ -148,17 +162,24 @@ function getAllRows(sheetName, limit = DEFAULT_LIMIT, offset = 0) {
 
   const values = sheet.getRange(startRow, 1, numRows, lastCol).getValues();
 
-  return values.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => {
-      let value = row[i];
-      if (DATE_COLUMNS.includes(h)) {
-        value = formatCellDate(value);
-      }
-      obj[h] = value;
+  return values
+    .filter(row => {
+      // Filter out completely empty rows
+      return nonEmptyColIndices.some(i => row[i] && row[i].toString().trim() !== "");
+    })
+    .map(row => {
+      const obj = {};
+      // Only include non-empty columns
+      nonEmptyColIndices.forEach(i => {
+        const h = headers[i];
+        let value = row[i];
+        if (DATE_COLUMNS.includes(h)) {
+          value = formatCellDate(value);
+        }
+        obj[h] = value;
+      });
+      return obj;
     });
-    return obj;
-  });
 }
 
 function getRowById(sheetName, idColumn, idValue) {
@@ -349,19 +370,19 @@ function getStockData() {
       const isGeneralMetric = metricKeywords.some(k => sourceName.toLowerCase().includes(k));
       
       if (sourceName && !isGeneralMetric && !foundLocations.has(sourceName)) {
-        // Search for device metrics in same column
+        // Search for device metrics - metrics are in col-1 (left), values in col
         let deviceInUse = 0;
         let deviceAvilable = 0;
         let foundAny = false;
         
         for (let searchRow = row; searchRow < Math.min(row + 20, data.length); searchRow++) {
-          const metricLabel = String(data[searchRow][col] || "").trim().toLowerCase();
-          const metricValue = searchRow + 1 < data.length ? data[searchRow][col + 1] : null;
+          const metricLabel = String(data[searchRow][col - 1] || "").trim().toLowerCase();
+          const metricValue = data[searchRow][col];
           
-          if (metricLabel === "device in use" && metricValue !== null) {
+          if (metricLabel === "device in use") {
             deviceInUse = parseInt(metricValue) || 0;
             foundAny = true;
-          } else if (metricLabel === "device avilable" && metricValue !== null) {
+          } else if (metricLabel === "device avilable") {
             deviceAvilable = parseInt(metricValue) || 0;
             foundAny = true;
           }

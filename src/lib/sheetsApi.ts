@@ -215,6 +215,7 @@ function mapObjectToTrip(row: any, index: number): Trip {
     // If Trip Creation Date has "Not Created" text, override trip status
     tripStatus: isNotCreated ? "Trip Not Created" : normalizeTripStatus(row["Trip status"] || row.tripStatus || ""),
     packetStatus: row["Packet Status"] || row.packetStatus || "",
+    pickupStatus: row["Pickup Status"] || row["Pick-up Status"] || row["Pickup"] || row.pickupStatus || row.pickup || "",
     pickupRaisedOn: formatDate(row["Pick-up Raised On"] || row.pickupRaisedOn || ""),
     taskId: row["Task ID"] || row.taskId || "",
     zohoTicketId: row["Zoho Ticket ID"] || row.zohoTicketId || "",
@@ -223,14 +224,11 @@ function mapObjectToTrip(row: any, index: number): Trip {
     remarks: row["Remarks"] || row.remarks || "",
   };
 
-  // Debug log for first trip
-  if (index === 0) {
-    console.log("[mapObjectToTrip] Raw input row:", row);
-    console.log("[mapObjectToTrip] Mapped trip:", trip);
-    console.log("[mapObjectToTrip] Date fields mapping:");
-    console.log("  - Trip Creation Date input:", row["Trip Creation Date"], "→ output:", trip.tripCreationDate);
-    console.log("  - Trip Completion Date input:", row["Trip Completion Date"], "→ output:", trip.tripCompletionDate);
-    console.log("  - Is Not Created:", isNotCreated, "→ Trip Status:", trip.tripStatus);
+  // Debug log for first 3 trips
+  if (index < 3) {
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Packet Status:`, trip.packetStatus);
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - is Pickup Raised?:`, trip.packetStatus?.toLowerCase().trim() === "pickup raised");
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - is Pickup Done?:`, trip.packetStatus?.toLowerCase().trim() === "pickup done");
   }
 
   return trip;
@@ -393,6 +391,7 @@ function tripToSheetRow(trip: Trip) {
     "Transporter Name": trip.transporterName,
     "Trip status": trip.tripStatus,
     "Packet Status": trip.packetStatus,
+    "Pickup Status": trip.pickupStatus,
     "Pick-up Raised On": trip.pickupRaisedOn,
     "Task ID": trip.taskId,
     "Zoho Ticket ID": trip.zohoTicketId,

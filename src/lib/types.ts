@@ -10,6 +10,7 @@ export interface Trip {
   transporterName: string;
   tripStatus: TripStatus;
   packetStatus: string;
+  pickupStatus: string; // "Pickup Raised", "Pickup Done", etc.
   pickupRaisedOn: string;
   taskId: string;
   zohoTicketId: string;
@@ -97,5 +98,18 @@ export interface OverallDeviceMetrics {
   totalDevices: number;
   overallUtilization: number;
   sourceBreakdown: DeviceUtilization[];
+}
+
+export interface SourcePickupMetrics {
+  source: string;
+  pickupRaised: number;   // "Pickup Raised" count
+  pickupDone: number;     // "Pickup Done" count
+  total: number;
+}
+
+export interface PickupStatusMetrics {
+  sourceBreakdown: SourcePickupMetrics[];
+  totalPickupRaised: number;
+  totalPickupDone: number;
 }
 
