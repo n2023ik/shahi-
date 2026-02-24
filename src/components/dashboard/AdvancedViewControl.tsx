@@ -460,6 +460,21 @@ export default function AdvancedViewControl() {
       return filteredTrips.filter(trip => trip.actualPickupDate && trip.actualPickupDate.trim() && trip.actualPickupDate !== "-");
     }
     
+    // Pickup Status - Pickup Raised
+    if (status === "pickupraised") {
+      return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup raised");
+    }
+
+    // Pickup Status - Pickup Done
+    if (status === "pickupdone") {
+      return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup done");
+    }
+
+    // Pickup Status - Pending Pickups (Raised but not Done)
+    if (status === "pendingpickups") {
+      return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup raised");
+    }
+    
     if (status === "other") return filteredTrips.filter(t => !t.packetStatus || t.packetStatus === "-");
     return filteredTrips;
   };
@@ -793,7 +808,10 @@ export default function AdvancedViewControl() {
       {/* Pickup Status Summary Cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Pickup Raised */}
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-6 shadow-sm">
+        <button
+          onClick={() => handleKPIClick("pickupraised")}
+          className="rounded-lg bg-amber-50 border border-amber-200 p-6 shadow-sm hover:shadow-lg hover:scale-105 transition-all hover:border-amber-400 cursor-pointer text-left"
+        >
           <p className="text-xs font-semibold uppercase text-amber-600">Total Pickup Raised</p>
           <div className="mt-3 flex items-end justify-between">
             <p className="text-3xl font-bold text-amber-700">
@@ -803,10 +821,13 @@ export default function AdvancedViewControl() {
               <Package className="h-5 w-5 text-amber-600" />
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Total Pickup Done */}
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-6 shadow-sm">
+        <button
+          onClick={() => handleKPIClick("pickupdone")}
+          className="rounded-lg bg-emerald-50 border border-emerald-200 p-6 shadow-sm hover:shadow-lg hover:scale-105 transition-all hover:border-emerald-400 cursor-pointer text-left"
+        >
           <p className="text-xs font-semibold uppercase text-emerald-600">Total Pickup Done</p>
           <div className="mt-3 flex items-end justify-between">
             <p className="text-3xl font-bold text-emerald-700">
@@ -816,10 +837,13 @@ export default function AdvancedViewControl() {
               <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Pending Pickups */}
-        <div className="rounded-lg bg-purple-50 border border-purple-200 p-6 shadow-sm">
+        <button
+          onClick={() => handleKPIClick("pendingpickups")}
+          className="rounded-lg bg-purple-50 border border-purple-200 p-6 shadow-sm hover:shadow-lg hover:scale-105 transition-all hover:border-purple-400 cursor-pointer text-left"
+        >
           <p className="text-xs font-semibold uppercase text-purple-600">Pending Pickups</p>
           <div className="mt-3 flex items-end justify-between">
             <p className="text-3xl font-bold text-purple-700">
@@ -829,7 +853,7 @@ export default function AdvancedViewControl() {
               <AlertCircle className="h-5 w-5 text-purple-600" />
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Overall Rate */}
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-6 shadow-sm">
@@ -1167,6 +1191,9 @@ export default function AdvancedViewControl() {
                   {selectedStatusModal === "delivered" && "Delivered"}
                   {selectedStatusModal === "pending" && "Pending Confirmation"}
                   {selectedStatusModal === "pickupdelay" && "Pickup Delay"}
+                  {selectedStatusModal === "pickupraised" && "Pickup Raised"}
+                  {selectedStatusModal === "pickupdone" && "Pickup Done"}
+                  {selectedStatusModal === "pendingpickups" && "Pending Pickups"}
                   {selectedStatusModal === "other" && "Other Status"}
                 </h2>
                 <p className="text-sm text-slate-600 mt-1">
