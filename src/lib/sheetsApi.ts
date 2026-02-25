@@ -45,32 +45,46 @@ async function callAppsScript(
 
     if (method === "GET") {
       // For GET requests: NO custom headers to avoid CORS preflight
-      url = `${APPS_SCRIPT_URL}?action=${action}`;
+      // Properly construct URL with encoded parameters
+      const params = new URLSearchParams({ action });
+      if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        });
+      }
+      url = `${APPS_SCRIPT_URL}?${params.toString()}`;
       init.method = "GET";
     } else {
-      // For POST requests: Use form-data to avoid CORS preflight
-      // instead of JSON which triggers preflight
+      // For POST requests: Use URL-encoded form data to avoid CORS preflight
+      // This is the most reliable way to avoid OPTIONS preflight with Apps Script
+      init.method = "POST";
       
-      // Convert to FormData to avoid preflight (Content-Type will be auto-set)
-      const formData = new FormData();
+      // Create URL-encoded form data
+      const formBody = new URLSearchParams();
+      formBody.append('action', action);
       
-      // Flatten data into FormData - each field becomes a separate parameter
+      // Add all data fields as URL parameters
       if (data) {
         Object.entries(data).forEach(([key, value]) => {
           if (typeof value === 'object' && value !== null) {
-            formData.append(key, JSON.stringify(value));
+            // Stringify objects
+            formBody.append(key, JSON.stringify(value));
           } else {
-            formData.append(key, String(value));
+            formBody.append(key, String(value ?? ''));
           }
         });
       }
       
-      init.method = "POST";
-      init.body = formData;
-      // Don't set Content-Type header - browser will set it with boundary
+      init.body = formBody;
+      // Don't set Content-Type - browser will auto-set to application/x-www-form-urlencoded
     }
 
     console.log(`[sheetsApi] Calling Apps Script: ${method} ${url.substring(0, 100)}...`);
+    if (method === "POST" && data) {
+      console.log(`[sheetsApi] POST data:`, data);
+    }
 
     const res = await fetch(url, init);
 
@@ -89,8 +103,26 @@ async function callAppsScript(
     const responseText = await res.text();
 
     try {
-      return JSON.parse(responseText);
+      const jsonResponse = JSON.parse(responseText);
+      console.log(`[sheetsApi] Response:`, jsonResponse);
+      
+      // Check if response contains an error
+      if (jsonResponse.error) {
+        console.error(`[sheetsApi] Server returned error:`, jsonResponse.error);
+        // Throw a regular error, not ConfigurationError
+        const error = new Error(jsonResponse.error);
+        error.name = 'ServerError';
+        throw error;
+      }
+      
+      return jsonResponse;
     } catch (jsonError) {
+      // If it's already our thrown error, re-throw it
+      if (jsonError instanceof Error && jsonError.name === 'ServerError') {
+        throw jsonError;
+      }
+      
+      // Otherwise it's a JSON parsing error
       console.error("❌ Invalid JSON response from Apps Script:", responseText.substring(0, 200));
       throw new ConfigurationError(
         `Apps Script returned invalid JSON. Response starts with: "${responseText.substring(0, 50)}...". ` +
@@ -222,13 +254,30 @@ function mapObjectToTrip(row: any, index: number): Trip {
     actualPickupDate: formatDate(row["Actual Pick-up Date"] || row.actualPickupDate || ""),
     deliveredDate: formatDate(row["Delivered Date"] || row.deliveredDate || ""),
     remarks: row["Remarks"] || row.remarks || "",
+    deviceCount: undefined as number | undefined,
+    serialNumbers: undefined as string[] | undefined,
   };
+
+  // Parse Asset Tracker IDs into serialNumbers array
+  const assetTrackerRaw = String(row["Asset Tracker"] || row.assetTracker || "").trim();
+  if (assetTrackerRaw && assetTrackerRaw !== "N/A" && assetTrackerRaw !== "-" && assetTrackerRaw !== "") {
+    // Split by comma, newline, or semicolon, then filter and clean
+    const serialNumbers = assetTrackerRaw
+      .split(/[\n,;]+/)
+      .map(s => s.trim())
+      .filter(s => s && s !== "N/A" && s !== "-");
+    
+    if (serialNumbers.length > 0) {
+      trip.serialNumbers = serialNumbers;
+      trip.deviceCount = serialNumbers.length;
+    }
+  }
 
   // Debug log for first 3 trips
   if (index < 3) {
     console.log(`[mapObjectToTrip] Trip #${index + 1} - Packet Status:`, trip.packetStatus);
-    console.log(`[mapObjectToTrip] Trip #${index + 1} - is Pickup Raised?:`, trip.packetStatus?.toLowerCase().trim() === "pickup raised");
-    console.log(`[mapObjectToTrip] Trip #${index + 1} - is Pickup Done?:`, trip.packetStatus?.toLowerCase().trim() === "pickup done");
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Asset Tracker IDs:`, trip.serialNumbers);
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Device Count:`, trip.deviceCount);
   }
 
   return trip;
@@ -329,12 +378,14 @@ export async function createTrip(trip: Trip) {
   try {
     // Use "create" action from the new Apps Script API
     const rowData = tripToSheetRow(trip);
-    console.log("[createTrip] Creating trip:", trip.tripId);
-    return await callAppsScript("create", "POST", {
+    console.log("[createTrip] Creating trip:", trip.tripId, rowData);
+    const result = await callAppsScript("create", "POST", {
       action: "create",
       sheet: "Shahi Reverse Pickup/Trip Details",
       data: rowData,
     });
+    console.log("[createTrip] Success:", result);
+    return result;
   } catch (error) {
     console.error("Create trip failed:", error);
     throw error;
@@ -345,14 +396,16 @@ export async function updateTrip(trip: Trip) {
   try {
     // Use "update" action from the new Apps Script API
     const rowData = tripToSheetRow(trip);
-    console.log("[updateTrip] Updating trip:", trip.tripId);
-    return await callAppsScript("update", "POST", {
+    console.log("[updateTrip] Updating trip:", trip.tripId, rowData);
+    const result = await callAppsScript("update", "POST", {
       action: "update",
       sheet: "Shahi Reverse Pickup/Trip Details",
       idColumn: "Trip Id",
       idValue: trip.tripId,
       updates: rowData,
     });
+    console.log("[updateTrip] Success:", result);
+    return result;
   } catch (error) {
     console.error("Update trip failed:", error);
     throw error;
@@ -362,12 +415,14 @@ export async function updateTrip(trip: Trip) {
 export async function deleteTrip(tripId: string) {
   try {
     console.log("[deleteTrip] Deleting trip:", tripId);
-    return await callAppsScript("delete", "POST", {
+    const result = await callAppsScript("delete", "POST", {
       action: "delete",
       sheet: "Shahi Reverse Pickup/Trip Details",
       idColumn: "Trip Id",
       idValue: tripId,
     });
+    console.log("[deleteTrip] Success:", result);
+    return result;
   } catch (error) {
     console.error("Delete trip failed:", error);
     throw error;
@@ -452,7 +507,16 @@ export async function fetchStockDeficiency(): Promise<StockDeficiency[]> {
       throw error;
     }
     
-    throw new Error(`Failed to load stock data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Provide helpful error message for common issues
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('Invalid GET action')) {
+      throw new Error(
+        'Stock data endpoint not available in your deployed Apps Script. ' +
+        'Please deploy DashboardData_v2.gs following the setup guide.'
+      );
+    }
+    
+    throw new Error(`Failed to load stock data: ${errorMessage}`);
   }
 }
 

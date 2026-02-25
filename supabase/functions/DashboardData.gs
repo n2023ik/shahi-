@@ -26,8 +26,15 @@ const DATE_COLUMNS = [
    ENTRY POINTS
 ===================================================== */
 
-function doOptions() {
-  return buildResponse({});
+function doOptions(e) {
+  // Handle CORS preflight requests
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'ok' }))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    .setHeader('Access-Control-Max-Age', '86400');
 }
 
 function doGet(e) {
@@ -68,34 +75,44 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  
   try {
     // authorize();
-    const lock = LockService.getScriptLock();
     lock.waitLock(10000);
 
     const body = parseBody(e);
     const action = body.action;
+    
+    Logger.log("Processing POST action: " + action);
 
     if (action === "create") {
-      return buildResponse(createRow(body.sheet, body.data));
+      const result = createRow(body.sheet, body.data);
+      Logger.log("Create result: " + JSON.stringify(result));
+      return buildResponse(result);
     }
 
     if (action === "update") {
-      return buildResponse(
-        updateRow(body.sheet, body.idColumn, body.idValue, body.updates)
-      );
+      const result = updateRow(body.sheet, body.idColumn, body.idValue, body.updates);
+      Logger.log("Update result: " + JSON.stringify(result));
+      return buildResponse(result);
     }
 
     if (action === "delete") {
-      return buildResponse(
-        deleteRow(body.sheet, body.idColumn, body.idValue)
-      );
+      const result = deleteRow(body.sheet, body.idColumn, body.idValue);
+      Logger.log("Delete result: " + JSON.stringify(result));
+      return buildResponse(result);
     }
 
-    return buildResponse({ error: "Invalid POST action" });
+    Logger.log("Invalid POST action: " + action);
+    return buildResponse({ error: "Invalid POST action: " + action });
 
   } catch (err) {
-    return buildResponse({ error: err.message });
+    Logger.log("POST Error: " + err.message);
+    Logger.log("Stack: " + err.stack);
+    return buildResponse({ error: err.message, details: err.stack });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -464,29 +481,83 @@ function formatCellDate(value) {
 }
 
 function parseBody(e) {
-  // Handle FormData (from browser)
-  if (e.parameter && e.parameter.action) {
-    const dataStr = e.parameter.data || "{}";
-    const updatesStr = e.parameter.updates || "{}";
+  try {
+    // Check content type to determine parsing method
+    const contentType = e.postData ? e.postData.type : '';
     
-    return {
-      action: e.parameter.action,
-      sheet: e.parameter.sheet || SHEETS.TRIPS,
-      idColumn: e.parameter.idColumn || "Trip Id",
-      idValue: e.parameter.idValue,
-      data: typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr,
-      updates: typeof updatesStr === 'string' ? JSON.parse(updatesStr) : updatesStr
-    };
+    Logger.log("Content-Type: " + contentType);
+    Logger.log("Has e.parameter: " + (e.parameter ? "Yes" : "No"));
+    Logger.log("Has e.postData: " + (e.postData ? "Yes" : "No"));
+    
+    // Method 1: URL-encoded form data (application/x-www-form-urlencoded)
+    // This comes through e.parameter
+    if (e.parameter && e.parameter.action) {
+      Logger.log("Parsing URL-encoded form data...");
+      
+      const action = e.parameter.action;
+      const sheet = e.parameter.sheet || SHEETS.TRIPS;
+      const idColumn = e.parameter.idColumn || "Trip Id";
+      const idValue = e.parameter.idValue || "";
+      
+      // Parse data object if present
+      let data = {};
+      if (e.parameter.data) {
+        try {
+          data = typeof e.parameter.data === 'string' ? JSON.parse(e.parameter.data) : e.parameter.data;
+        } catch (err) {
+          Logger.log("Data is not JSON, using as-is: " + err.message);
+          data = e.parameter.data;
+        }
+      }
+      
+      // Parse updates object if present
+      let updates = {};
+      if (e.parameter.updates) {
+        try {
+          updates = typeof e.parameter.updates === 'string' ? JSON.parse(e.parameter.updates) : e.parameter.updates;
+        } catch (err) {
+          Logger.log("Updates is not JSON, using as-is: " + err.message);
+          updates = e.parameter.updates;
+        }
+      }
+      
+      const body = {
+        action: action,
+        sheet: sheet,
+        idColumn: idColumn,
+        idValue: idValue,
+        data: data,
+        updates: updates
+      };
+      
+      Logger.log("Parsed form data body: " + JSON.stringify(body));
+      return body;
+    }
+    
+    // Method 2: JSON POST (application/json or text/plain)
+    // Only try JSON parsing if we don't have e.parameter
+    if (e.postData && e.postData.contents && !e.parameter) {
+      Logger.log("Parsing JSON POST data...");
+      const body = JSON.parse(e.postData.contents);
+      Logger.log("Parsed JSON POST body: " + JSON.stringify(body));
+      return body;
+    }
+    
+    Logger.log("No valid request format detected");
+    Logger.log("e.parameter: " + JSON.stringify(e.parameter));
+    throw new Error("No valid request body found");
+  } catch (err) {
+    Logger.log("Error parsing body: " + err.message);
+    Logger.log("Error stack: " + err.stack);
+    throw new Error("Invalid request body: " + err.message);
   }
-  // Handle JSON POST
-  if (e.postData && e.postData.contents) {
-    return JSON.parse(e.postData.contents);
-  }
-  throw new Error("Invalid request body");
 }
 
 function buildResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }

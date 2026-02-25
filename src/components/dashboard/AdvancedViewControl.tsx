@@ -115,23 +115,36 @@ export default function AdvancedViewControl() {
       setLoading(true);
       setError(null);
 
-      // Fetch both trips and stock deficiency data in parallel
-      const [tripsData, stockData] = await Promise.all([
+      // Fetch trips (critical) and stock data (optional) in parallel
+      const [tripsData, stockDataResult] = await Promise.allSettled([
         fetchTrips(),
         fetchStockDeficiency()
       ]);
 
-      if (tripsData && tripsData.length > 0) {
-        setTrips(tripsData);
-        console.log(`✓ Loaded ${tripsData.length} trips from Google Sheets`);
+      // Handle trips data (critical)
+      if (tripsData.status === 'fulfilled' && tripsData.value && tripsData.value.length > 0) {
+        setTrips(tripsData.value);
+        console.log(`✓ Loaded ${tripsData.value.length} trips from Google Sheets`);
+      } else if (tripsData.status === 'rejected') {
+        throw tripsData.reason;
       } else {
         setError("No trip data found in Google Sheets");
         setTrips([]);
       }
 
-      if (stockData && stockData.length > 0) {
-        setStockDeficiency(stockData);
-        console.log(`✓ Loaded stock data for ${stockData.length} locations`);
+      // Handle stock data (non-critical)
+      if (stockDataResult.status === 'fulfilled' && stockDataResult.value && stockDataResult.value.length > 0) {
+        setStockDeficiency(stockDataResult.value);
+        console.log(`✓ Loaded stock data for ${stockDataResult.value.length} locations`);
+      } else if (stockDataResult.status === 'rejected') {
+        const stockError = stockDataResult.reason instanceof Error 
+          ? stockDataResult.reason.message 
+          : 'Unknown error';
+        console.warn(`⚠️ Stock data unavailable: ${stockError}`);
+        // Don't fail completely, just show a warning if trips loaded successfully
+        if (tripsData.status === 'fulfilled' && !error) {
+          setError(`Stock data unavailable: ${stockError}`);
+        }
       }
 
       setLastFetchTime(new Date());
@@ -276,19 +289,19 @@ export default function AdvancedViewControl() {
   }, [filteredTrips]);
 
   // =========================================================================
-  // CALCULATE DEVICE UTILIZATION METRICS (Overall & Source-wise)
+  // CALCULATE ASSET TRACKER UTILIZATION METRICS (Overall & Source-wise)
   // =========================================================================
 
   const calculateDeviceMetrics = useMemo((): OverallDeviceMetrics => {
-    // Use devices in use and available directly from Google Sheets (stockDeficiency data)
-    // No need to calculate from trips - the sheets already have accurate "device in use" and "device avilable" fields
+    // Use asset trackers in use and available directly from Google Sheets (stockDeficiency data)
+    // No need to calculate from trips - the sheets already have accurate "asset tracker in use" and "asset tracker available" fields
     
     const sourceBreakdown: DeviceUtilization[] = stockDeficiency.map((stock) => {
       const devicesInUse = stock.devicesInUse || 0;
       const devicesAvailable = stock.availableDevices || 0;
       const totalDevices = stock.maxCapacity || (devicesInUse + devicesAvailable);
       
-      // Utilization = (devices in use / total devices) * 100
+      // Utilization = (asset trackers in use / total asset trackers) * 100
       const utilizationPercentage = totalDevices > 0
         ? (devicesInUse / totalDevices) * 100
         : 0;
@@ -470,11 +483,6 @@ export default function AdvancedViewControl() {
       return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup done");
     }
 
-    // Pickup Status - Pending Pickups (Raised but not Done)
-    if (status === "pendingpickups") {
-      return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup raised");
-    }
-    
     if (status === "other") return filteredTrips.filter(t => !t.packetStatus || t.packetStatus === "-");
     return filteredTrips;
   };
@@ -511,14 +519,33 @@ export default function AdvancedViewControl() {
 
       {/* Error Message */}
       {error && (
-        <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 border border-red-200 p-4">
-          <AlertCircle className="h-5 w-5 text-red-600" />
-          <div>
-            <p className="font-medium text-red-900">Data Loading Issue</p>
-            <p className="text-sm text-red-700">{error}</p>
-            <p className="text-xs text-red-600 mt-1">
-              Make sure Google Apps Script endpoint is configured in your environment.
-            </p>
+        <div className="mb-6 rounded-lg bg-red-50 border border-red-200 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-red-900">Data Loading Issue</p>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+              {error.includes('Invalid GET action') || error.includes('Stock data endpoint') ? (
+                <div className="mt-3 p-3 bg-white rounded border border-red-200">
+                  <p className="text-sm font-medium text-slate-900 mb-2">
+                    🔧 How to fix:
+                  </p>
+                  <ol className="text-xs text-slate-700 space-y-1 list-decimal list-inside">
+                    <li>Open Google Apps Script (script.google.com)</li>
+                    <li>Deploy <code className="bg-slate-100 px-1 rounded">DashboardData_v2.gs</code> as Web App</li>
+                    <li>Copy the new URL to your .env file</li>
+                    <li>Restart your dev server</li>
+                  </ol>
+                  <p className="text-xs text-slate-600 mt-2">
+                    📖 See <code className="bg-slate-100 px-1 rounded">DEPLOY_APPS_SCRIPT.md</code> for detailed steps
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-red-600 mt-2">
+                  Make sure Google Apps Script endpoint is configured correctly in your .env file.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -806,7 +833,7 @@ export default function AdvancedViewControl() {
       </div>
 
       {/* Pickup Status Summary Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Total Pickup Raised */}
         <button
           onClick={() => handleKPIClick("pickupraised")}
@@ -839,22 +866,6 @@ export default function AdvancedViewControl() {
           </div>
         </button>
 
-        {/* Pending Pickups */}
-        <button
-          onClick={() => handleKPIClick("pendingpickups")}
-          className="rounded-lg bg-purple-50 border border-purple-200 p-6 shadow-sm hover:shadow-lg hover:scale-105 transition-all hover:border-purple-400 cursor-pointer text-left"
-        >
-          <p className="text-xs font-semibold uppercase text-purple-600">Pending Pickups</p>
-          <div className="mt-3 flex items-end justify-between">
-            <p className="text-3xl font-bold text-purple-700">
-              {calculatePickupStatusMetrics.totalPickupRaised - calculatePickupStatusMetrics.totalPickupDone}
-            </p>
-            <div className="rounded-lg bg-purple-100 p-3">
-              <AlertCircle className="h-5 w-5 text-purple-600" />
-            </div>
-          </div>
-        </button>
-
         {/* Overall Rate */}
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase text-blue-600">Overall Rate</p>
@@ -875,7 +886,7 @@ export default function AdvancedViewControl() {
         </div>
       </div>
 
-      {/* DEVICE UTILIZATION OVERVIEW - Overall Metrics */}
+      {/* ASSET TRACKER UTILIZATION OVERVIEW - Overall Metrics */}
       <div className="mb-8 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 p-6 shadow-sm border border-indigo-200">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -884,10 +895,10 @@ export default function AdvancedViewControl() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">
-                Device Utilization Overview
+                Asset Tracker Utilization Overview
               </h2>
               <p className="text-sm text-slate-600 mt-1">
-                Real-time tracking of devices in use and available across all locations
+                Real-time tracking of asset trackers in use and available across all locations
               </p>
             </div>
           </div>
@@ -906,11 +917,11 @@ export default function AdvancedViewControl() {
 
         {/* Overall Stats Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-          {/* Total Devices in Use */}
+          {/* Total Asset Trackers in Use */}
           <div className="rounded-lg bg-white p-5 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase text-slate-500">
-                Devices In Use
+                Asset Trackers In Use
               </p>
               <div className="rounded-lg bg-amber-100 p-2">
                 <Truck className="h-4 w-4 text-amber-600" />
@@ -924,11 +935,11 @@ export default function AdvancedViewControl() {
             </p>
           </div>
 
-          {/* Total Devices Available */}
+          {/* Total Asset Trackers Available */}
           <div className="rounded-lg bg-white p-5 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase text-slate-500">
-                Devices Available
+                Asset Trackers Available
               </p>
               <div className="rounded-lg bg-emerald-100 p-2">
                 <Archive className="h-4 w-4 text-emerald-600" />
@@ -942,11 +953,11 @@ export default function AdvancedViewControl() {
             </p>
           </div>
 
-          {/* Total Devices */}
+          {/* Total Asset Trackers */}
           <div className="rounded-lg bg-white p-5 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase text-slate-500">
-                Total Devices
+                Total Asset Trackers
               </p>
               <div className="rounded-lg bg-indigo-100 p-2">
                 <Package className="h-4 w-4 text-indigo-600" />
@@ -1005,7 +1016,7 @@ export default function AdvancedViewControl() {
         <div className="rounded-lg bg-white p-5 border border-slate-200">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">
-              Source-wise Device Breakdown
+              Source-wise Asset Tracker Breakdown
             </h3>
             {calculateDeviceMetrics.sourceBreakdown.filter(s => s.isHighUtilization).length > 0 && (
               <div className="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1">
@@ -1119,10 +1130,10 @@ export default function AdvancedViewControl() {
             <div className="rounded-lg bg-slate-50 border border-slate-200 p-8 text-center">
               <Package className="h-10 w-10 text-slate-400 mx-auto mb-3" />
               <p className="text-sm font-medium text-slate-900">
-                No device data available
+                No asset tracker data available
               </p>
               <p className="text-xs text-slate-600 mt-1">
-                Connect to Google Sheets to track device utilization
+                Connect to Google Sheets to track asset tracker utilization
               </p>
             </div>
           )}
@@ -1138,7 +1149,7 @@ export default function AdvancedViewControl() {
                   ⚠️ Critical Utilization Alert - 80% Threshold Reached
                 </p>
                 <p className="text-sm text-red-800 mb-3">
-                  The following locations have reached or exceeded 80% device utilization. Immediate action recommended:
+                  The following locations have reached or exceeded 80% asset tracker utilization. Immediate action recommended:
                 </p>
                 <div className="space-y-2">
                   {calculateDeviceMetrics.sourceBreakdown
@@ -1165,9 +1176,9 @@ export default function AdvancedViewControl() {
                     📋 Recommended Actions:
                   </p>
                   <ul className="text-xs text-red-800 mt-2 space-y-1 ml-4 list-disc">
-                    <li>Reallocate devices from lower-utilization locations</li>
-                    <li>Expedite return of devices from completed trips</li>
-                    <li>Consider procuring additional devices for high-demand locations</li>
+                    <li>Reallocate asset trackers from lower-utilization locations</li>
+                    <li>Expedite return of asset trackers from completed trips</li>
+                    <li>Consider procuring additional asset trackers for high-demand locations</li>
                   </ul>
                 </div>
               </div>
@@ -1193,7 +1204,6 @@ export default function AdvancedViewControl() {
                   {selectedStatusModal === "pickupdelay" && "Pickup Delay"}
                   {selectedStatusModal === "pickupraised" && "Pickup Raised"}
                   {selectedStatusModal === "pickupdone" && "Pickup Done"}
-                  {selectedStatusModal === "pendingpickups" && "Pending Pickups"}
                   {selectedStatusModal === "other" && "Other Status"}
                 </h2>
                 <p className="text-sm text-slate-600 mt-1">
@@ -1251,11 +1261,7 @@ export default function AdvancedViewControl() {
                           <p className="text-sm text-slate-700 mt-1">{trip.tripCreationDate}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase text-slate-500">Devices</p>
-                          <p className="text-sm font-bold text-slate-900 mt-1">{trip.deviceCount || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase text-slate-500">Serial Numbers</p>
+                          <p className="text-xs font-semibold uppercase text-slate-500">Asset Trackers</p>
                           <p className="text-xs text-slate-700 mt-1 max-h-12 overflow-y-auto">
                             {trip.serialNumbers && trip.serialNumbers.length > 0
                               ? trip.serialNumbers.join(", ")
@@ -1291,7 +1297,7 @@ export default function AdvancedViewControl() {
               </h2>
             </div>
             <p className="text-sm text-slate-600 mt-1">
-              Devices needed at each location to reach 80% capacity
+              Asset trackers needed at each location to reach 80% capacity
             </p>
           </div>
           <div className="text-right">
@@ -1325,7 +1331,7 @@ export default function AdvancedViewControl() {
                     Utilization
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">
-                    Devices Needed
+                    Asset Trackers Needed
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">
                     Status
@@ -1424,7 +1430,7 @@ export default function AdvancedViewControl() {
                 <p className="text-sm text-red-700 mt-1">
                   {stockDeficiency
                     .filter(s => s.status === 'critical')
-                    .map(s => `${s.source}: ${s.deficiency} devices needed`)
+                    .map(s => `${s.source}: ${s.deficiency} asset trackers needed`)
                     .join(', ')}
                 </p>
               </div>

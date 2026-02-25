@@ -11,6 +11,16 @@ import AnalyticsCharts from "@/components/dashboard/AnalyticsCharts";
 import SourceAnalysis from "@/components/dashboard/SourceAnalysis";
 import AdvancedViewControl from "@/components/dashboard/AdvancedViewControl";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
   const [trips, setTrips] = useState<Trip[]>(() => generateMockTrips(47));
@@ -20,6 +30,9 @@ const Index = () => {
   const [viewTrip, setViewTrip] = useState<Trip | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [operationLoading, setOperationLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [tripToDelete, setTripToDelete] = useState<Trip | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,25 +87,114 @@ const Index = () => {
   const handleNewTrip = () => { setEditingTrip(null); setFormOpen(true); };
   const handleEdit = (trip: Trip) => { setEditingTrip(trip); setFormOpen(true); };
 
-  const handleDelete = useCallback(async (trip: Trip) => {
-    setTrips((prev) => prev.filter((t) => t.tripId !== trip.tripId));
-    toast({ title: "Trip deleted", description: `${trip.tripId} has been removed.` });
-    try { await apiDeleteTrip(String(trip.sNo)); } catch (e) { console.error("Delete API error:", e); }
-  }, [toast]);
+  const handleDeleteClick = (trip: Trip) => {
+    setTripToDelete(trip);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!tripToDelete) return;
+    
+    setOperationLoading(true);
+    const tripId = tripToDelete.tripId;
+    
+    try {
+      // Optimistic update - remove from UI immediately
+      setTrips((prev) => prev.filter((t) => t.tripId !== tripId));
+      setDeleteConfirmOpen(false);
+      setTripToDelete(null);
+      
+      toast({ 
+        title: "Deleting trip...", 
+        description: `Removing ${tripId} from database...` 
+      });
+      
+      // Call API to delete from Google Sheets using Trip ID (not S.No)
+      await apiDeleteTrip(tripId);
+      
+      toast({ 
+        title: "Trip deleted successfully", 
+        description: `${tripId} has been permanently removed.`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Delete API error:", error);
+      
+      // Revert the optimistic update on error
+      const data = await fetchTrips();
+      setTrips(data);
+      
+      // Better error message based on error type
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const isNotFound = errorMessage.includes('Row not found') || errorMessage.includes('not found');
+      
+      toast({ 
+        title: "Delete failed", 
+        description: isNotFound 
+          ? `Trip ${tripId} not found in database. It may have been already deleted.`
+          : `Could not delete ${tripId}. ${errorMessage}`,
+        variant: "destructive"
+      });
+    } finally {
+      setOperationLoading(false);
+    }
+  }, [tripToDelete, toast]);
 
   const handleSave = useCallback(async (trip: Trip) => {
     const isEdit = !!editingTrip;
-    setTrips((prev) => {
-      const exists = prev.find((t) => t.tripId === trip.tripId);
-      if (exists) return prev.map((t) => (t.tripId === trip.tripId ? trip : t));
-      return [...prev, { ...trip, sNo: prev.length + 1 }];
-    });
-    setFormOpen(false);
-    toast({ title: isEdit ? "Trip updated" : "Trip created", description: `${trip.tripId} saved successfully.` });
+    setOperationLoading(true);
+    
     try {
-      if (isEdit) await apiUpdateTrip(trip);
-      else await apiCreateTrip(trip);
-    } catch (e) { console.error("Save API error:", e); }
+      // Optimistic update
+      setTrips((prev) => {
+        const exists = prev.find((t) => t.tripId === trip.tripId);
+        if (exists) return prev.map((t) => (t.tripId === trip.tripId ? trip : t));
+        return [...prev, { ...trip, sNo: prev.length + 1 }];
+      });
+      
+      setFormOpen(false);
+      
+      toast({ 
+        title: isEdit ? "Updating trip..." : "Creating trip...", 
+        description: `Saving ${trip.tripId} to database...` 
+      });
+      
+      // Call API
+      if (isEdit) {
+        await apiUpdateTrip(trip);
+      } else {
+        await apiCreateTrip(trip);
+      }
+      
+      toast({ 
+        title: isEdit ? "Trip updated successfully" : "Trip created successfully", 
+        description: `${trip.tripId} has been saved to the database.`,
+        variant: "default"
+      });
+      
+      // Refresh data from server
+      const data = await fetchTrips();
+      if (data.length > 0) {
+        setTrips(data);
+      }
+    } catch (error) {
+      console.error("Save API error:", error);
+      
+      // Revert on error
+      const data = await fetchTrips();
+      setTrips(data);
+      
+      // Better error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      toast({ 
+        title: isEdit ? "Update failed" : "Create failed", 
+        description: `Could not save ${trip.tripId}. ${errorMessage}`,
+        variant: "destructive"
+      });
+    } finally {
+      setOperationLoading(false);
+    }
   }, [editingTrip, toast]);
 
   const getFilteredTrips = () => {
@@ -145,7 +247,7 @@ const Index = () => {
               />
             )}
             {(activeTab === "overview" || activeTab === "trips") && (
-              <TripTable trips={filteredTrips} onEdit={handleEdit} onDelete={handleDelete} onView={(t) => setViewTrip(t)} />
+              <TripTable trips={filteredTrips} onEdit={handleEdit} onDelete={handleDeleteClick} onView={(t) => setViewTrip(t)} />
             )}
             {activeTab === "by-source" && <SourceAnalysis trips={trips} />}
             {(activeTab === "overview" || activeTab === "analytics") && <AnalyticsCharts trips={trips} />}
@@ -160,8 +262,39 @@ const Index = () => {
         onSave={handleSave}
         trip={editingTrip}
         nextSNo={trips.length + 1}
+        loading={operationLoading}
       />
       <TripDetailModal open={!!viewTrip} onClose={() => setViewTrip(null)} trip={viewTrip} />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this trip?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{tripToDelete?.tripId}</strong> from the database.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={operationLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              disabled={operationLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {operationLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  <span>Deleting...</span>
+                </div>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

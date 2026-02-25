@@ -24,6 +24,7 @@ interface TripFormModalProps {
   onSave: (trip: Trip) => void;
   trip?: Trip | null;
   nextSNo: number;
+  loading?: boolean;
 }
 
 const statuses: TripStatus[] = [
@@ -31,6 +32,17 @@ const statuses: TripStatus[] = [
   "In Transit",
   "Awaiting to Departure",
   "Trip Not Created",
+];
+
+const packetStatuses = [
+  "Pending",
+  "Pickup Raised",
+  "Pickup Done",
+  "In Transit",
+  "Delivered",
+  "RTO",
+  "Lost",
+  "Damaged",
 ];
 
 const todayISO = () =>
@@ -62,6 +74,7 @@ export default function TripFormModal({
   onSave,
   trip,
   nextSNo,
+  loading = false,
 }: TripFormModalProps) {
   const [form, setForm] = useState<Trip>(
     emptyTrip(nextSNo)
@@ -235,6 +248,29 @@ export default function TripFormModal({
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase">
+              Packet Status
+            </Label>
+            <Select
+              value={form.packetStatus || "Pending"}
+              onValueChange={(v) =>
+                update("packetStatus", v)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {packetStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Field
             label="Pickup Raised On"
             field="pickupRaisedOn"
@@ -274,11 +310,19 @@ export default function TripFormModal({
           <Button
             variant="ghost"
             onClick={onClose}
+            disabled={loading}
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
-            {trip ? "Update" : "Create"}
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                <span>{trip ? "Updating..." : "Creating..."}</span>
+              </div>
+            ) : (
+              trip ? "Update" : "Create"
+            )}
           </Button>
         </div>
       </DialogContent>
