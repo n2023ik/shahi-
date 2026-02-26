@@ -228,24 +228,42 @@ function formatDate(val: string | any): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapObjectToTrip(row: any, index: number): Trip {
   const tripCreationDateRaw = String(row["Trip Creation Date"] || row.tripCreationDate || "").trim();
+  const tripIdRaw = String(row["Trip Id"] || row.tripId || "").trim();
+  const rawTripStatus = String(row["Trip status"] || row.tripStatus || "").trim();
+
+  const hasNotCreatedText = (value: string) => {
+    const normalized = value.toLowerCase();
+    return (
+      normalized.includes("not created") ||
+      normalized.includes("trip not created") ||
+      normalized.includes("not creted") ||
+      normalized.includes("trip not creted")
+    );
+  };
   
-  // Check if Trip Creation Date contains "Trip Not Created" text
-  const isNotCreated = tripCreationDateRaw.toLowerCase().includes("not created") || 
-                       tripCreationDateRaw.toLowerCase().includes("trip not created");
+  const isNotCreatedDateText = hasNotCreatedText(tripCreationDateRaw);
+  const isNotCreatedIdText = hasNotCreatedText(tripIdRaw);
+  // Check if Trip Creation Date or Trip ID contains "Trip Not Created" text
+  const isNotCreated = isNotCreatedDateText || isNotCreatedIdText;
+  const normalizedTripStatus = normalizeTripStatus(rawTripStatus);
+  const tripStatus = rawTripStatus
+    ? normalizedTripStatus
+    : isNotCreated
+      ? "Trip Not Created"
+      : normalizedTripStatus;
   
   const trip = {
     sNo: row["S.No."] || row.sNo || index + 1,
     // Keep "Trip Not Created" text as-is, otherwise format the date
-    tripCreationDate: isNotCreated ? tripCreationDateRaw : formatDate(tripCreationDateRaw),
+    tripCreationDate: isNotCreatedDateText ? tripCreationDateRaw : formatDate(tripCreationDateRaw),
     tripCompletionDate: formatDate(row["Trip Completion Date"] || row.tripCompletionDate || ""),
-    tripId: row["Trip Id"] || row.tripId || "",
+    tripId: tripIdRaw,
     vehicleNo: row["Vehicle No."] || row.vehicleNo || "",
     assetTracker: String(row["Asset Tracker"] || row.assetTracker || ""),
     sourceAddress: row["Source Address"] || row.sourceAddress || "",
     destinationAddress: row["Destination Address"] || row.destinationAddress || "",
     transporterName: row["Transporter Name"] || row.transporterName || "",
-    // If Trip Creation Date has "Not Created" text, override trip status
-    tripStatus: isNotCreated ? "Trip Not Created" : normalizeTripStatus(row["Trip status"] || row.tripStatus || ""),
+    tripStatus,
     packetStatus: row["Packet Status"] || row.packetStatus || "",
     pickupStatus: row["Pickup Status"] || row["Pick-up Status"] || row["Pickup"] || row.pickupStatus || row.pickup || "",
     pickupRaisedOn: formatDate(row["Pick-up Raised On"] || row.pickupRaisedOn || ""),
@@ -254,6 +272,7 @@ function mapObjectToTrip(row: any, index: number): Trip {
     actualPickupDate: formatDate(row["Actual Pick-up Date"] || row.actualPickupDate || ""),
     deliveredDate: formatDate(row["Delivered Date"] || row.deliveredDate || ""),
     remarks: row["Remarks"] || row.remarks || "",
+    isTripNotCreated: isNotCreated,
     deviceCount: undefined as number | undefined,
     serialNumbers: undefined as string[] | undefined,
   };

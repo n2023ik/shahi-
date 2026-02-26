@@ -3,6 +3,7 @@ import { DashboardData, Trip } from "@/lib/types";
 import { fetchDashboardData } from "@/lib/dashboardApi";
 import { fetchTrips } from "@/lib/sheetsApi";
 import { calculateOverviewDashboardMetrics } from "@/lib/metricsEngine";
+import { isTripNotCreated } from "@/lib/tripUtils";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OverallMetrics from "@/components/dashboard/OverallMetrics";
 import SuccessRateCard from "@/components/dashboard/SuccessRateCard";
@@ -79,10 +80,16 @@ export default function EnhancedDashboard() {
 
   // Build dropdown options
   const dropdownOptions = useMemo(() => {
+    const tripStatuses = new Set(
+      allTrips.map((t) => t.tripStatus).filter(Boolean)
+    );
+    if (allTrips.some((t) => isTripNotCreated(t))) {
+      tripStatuses.add("Trip Not Created");
+    }
     return {
       sources: ["all", ...new Set(allTrips.map(t => t.sourceAddress).filter(Boolean))],
       destinations: ["all", ...new Set(allTrips.map(t => t.destinationAddress).filter(Boolean))],
-      tripStatuses: ["all", ...new Set(allTrips.map(t => t.tripStatus).filter(Boolean))],
+      tripStatuses: ["all", ...Array.from(tripStatuses)],
       packetStatuses: ["all", ...new Set(allTrips.map(t => t.packetStatus).filter(Boolean))],
       transporters: ["all", ...new Set(allTrips.map(t => t.transporterName).filter(Boolean))],
     };
@@ -111,7 +118,11 @@ export default function EnhancedDashboard() {
       const matchesDestination = filters.destination === "all" || trip.destinationAddress === filters.destination;
 
       // Trip Status Filter
-      const matchesTripStatus = filters.tripStatus === "all" || trip.tripStatus === filters.tripStatus;
+      const matchesTripStatus =
+        filters.tripStatus === "all" ||
+        (filters.tripStatus === "Trip Not Created"
+          ? isTripNotCreated(trip)
+          : trip.tripStatus === filters.tripStatus);
 
       // Packet Status Filter
       const matchesPacketStatus = filters.packetStatus === "all" || trip.packetStatus === filters.packetStatus;

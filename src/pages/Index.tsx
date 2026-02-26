@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Trip } from "@/lib/types";
 import { generateMockTrips } from "@/lib/mockData";
 import { fetchTrips, createTrip as apiCreateTrip, updateTrip as apiUpdateTrip, deleteTrip as apiDeleteTrip } from "@/lib/sheetsApi";
+import { isTripNotCreated } from "@/lib/tripUtils";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import KPICards from "@/components/dashboard/KPICards";
 import TripTable from "@/components/dashboard/TripTable";
@@ -200,7 +201,11 @@ const Index = () => {
   const getFilteredTrips = () => {
     if (!selectedStatus) return trips;
     if (selectedStatus === "total") return trips;
-    return trips.filter((t) => t.tripStatus === selectedStatus);
+    return trips.filter((t) =>
+      selectedStatus === "Trip Not Created"
+        ? isTripNotCreated(t)
+        : t.tripStatus === selectedStatus
+    );
   };
 
   const filteredTrips = getFilteredTrips();

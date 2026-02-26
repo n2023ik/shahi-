@@ -13,6 +13,7 @@ import {
   calculateAllMetrics,
   calculateDaysFromToday,
 } from "@/lib/metricsEngine";
+import { isTripNotCreated } from "@/lib/tripUtils";
 import { fetchDashboardData } from "@/lib/dashboardApi";
 import { isNetworkError } from "@/lib/networkUtils";
 import { NoInternet } from "@/components/NoInternet";
@@ -192,7 +193,11 @@ export default function ComprehensiveLogisticsDashboard() {
 
     // Status filter
     if (filters.status !== "all") {
-      filtered = filtered.filter((trip) => trip.tripStatus === filters.status);
+      filtered = filtered.filter((trip) =>
+        filters.status === "Trip Not Created"
+          ? isTripNotCreated(trip)
+          : trip.tripStatus === filters.status
+      );
     }
 
     return filtered;

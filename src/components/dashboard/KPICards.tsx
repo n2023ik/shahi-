@@ -7,6 +7,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isTripNotCreated } from "@/lib/tripUtils";
 
 interface KPICardsProps {
   trips: Trip[];
@@ -66,7 +67,11 @@ export default function KPICards({ trips, selectedStatus, onStatusClick }: KPICa
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
       {kpiConfig.map((kpi, index) => {
-        const count = kpi.status ? trips.filter((t) => t.tripStatus === kpi.status).length : trips.length;
+        const count = kpi.status
+          ? kpi.status === "Trip Not Created"
+            ? trips.filter((t) => isTripNotCreated(t)).length
+            : trips.filter((t) => t.tripStatus === kpi.status).length
+          : trips.length;
         console.log(`[KPICards] ${kpi.label}: count=${count}, status="${kpi.status}"`);
         const isSelected = selectedStatus === (kpi.status || "total");
         

@@ -17,6 +17,7 @@ export interface Trip {
   actualPickupDate: string;
   deliveredDate: string;
   remarks: string;
+  isTripNotCreated?: boolean;
   deviceCount?: number;
   serialNumbers?: string[];
 }

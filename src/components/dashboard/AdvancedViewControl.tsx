@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Trip, StockDeficiency, DeviceUtilization, OverallDeviceMetrics, PickupStatusMetrics } from "@/lib/types";
 import { fetchTrips, fetchStockDeficiency } from "@/lib/sheetsApi";
+import { isTripNotCreated } from "@/lib/tripUtils";
 
 // Add this helper function at the top (after imports)
 function parseDate(dateStr?: string): Date | null {
@@ -203,6 +204,9 @@ export default function AdvancedViewControl() {
         .map((t) => t.tripStatus)
         .filter((s) => s && s.trim())
     );
+    if (trips.some((t) => isTripNotCreated(t))) {
+      statuses.add("Trip Not Created");
+    }
     return ["All", ...Array.from(statuses).sort()];
   }, [trips]);
 
@@ -222,7 +226,10 @@ export default function AdvancedViewControl() {
         filters.transporter === "All" ||
         trip.transporterName === filters.transporter;
       const statusMatch =
-        filters.status === "All" || trip.tripStatus === filters.status;
+        filters.status === "All" ||
+        (filters.status === "Trip Not Created"
+          ? isTripNotCreated(trip)
+          : trip.tripStatus === filters.status);
 
       return originMatch && destMatch && transporterMatch && statusMatch;
     });
@@ -247,8 +254,16 @@ export default function AdvancedViewControl() {
     };
 
     filteredTrips.forEach((trip) => {
-      // ✅ STRICT CHECK: Trip mein actual data hona chahiye
-      // Agar Trip ID nahi hai = empty row = skip karo
+      const statusLower = trip.tripStatus?.toLowerCase().trim() || "";
+      const packetLower = trip.packetStatus?.toLowerCase().trim() || ""; 
+
+      // ✅ Count completed trips FIRST (before validation) 
+      if (statusLower.includes("completed") && !statusLower.includes("not")) {
+        metrics.completed++;
+      }
+
+      // ✅ STRICT CHECK: For other metrics, trip mein actual data hona chahiye
+      // Agar Trip ID nahi hai = empty row = skip karo for other counts
       if (!trip.tripId || trip.tripId === "-" || trip.tripId.trim() === "") {
         return; // Skip empty rows
       }
@@ -257,11 +272,8 @@ export default function AdvancedViewControl() {
         return; // Skip agar Trip Creation Date empty hai
       }
 
-      const statusLower = trip.tripStatus?.toLowerCase().trim() || "";
-      const packetLower = trip.packetStatus?.toLowerCase().trim() || ""; 
-
-      if (statusLower.includes("completed")) metrics.completed++; 
-      else if (statusLower.includes("transit")) metrics.inTransit++;
+      // Count other statuses
+      if (statusLower.includes("transit")) metrics.inTransit++;
       else if (statusLower.includes("awaiting")) metrics.awaitingDeparture++;
 
       if (packetLower.includes("delivered")) metrics.delivered++; 
@@ -397,6 +409,15 @@ export default function AdvancedViewControl() {
     };
   }, [filteredTrips]);
 
+  const overallCompletion = useMemo(() => {
+    const totalTrips = trips.length;
+    const completedTrips = trips.filter(
+      (trip) => trip.tripStatus === "Trip Completed"
+    ).length;
+    const rate = totalTrips > 0 ? (completedTrips / totalTrips) * 100 : 0;
+    return { totalTrips, completedTrips, rate };
+  }, [trips]);
+
   // =========================================================================
   // AUTO-REFRESH EFFECT
   // =========================================================================
@@ -447,7 +468,10 @@ export default function AdvancedViewControl() {
   const getTripsForStatus = (status: string): Trip[] => {
     if (status === "total") return filteredTrips;
     if (status === "intransit") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("transit"));
-    if (status === "completed") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("completed"));
+    if (status === "completed") return filteredTrips.filter(t => {
+      const s = t.tripStatus?.toLowerCase().trim() || "";
+      return s.includes("completed") && !s.includes("not");
+    });
     if (status === "awaiting") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("awaiting"));
     if (status === "delivered") return filteredTrips.filter(t => t.packetStatus?.toLowerCase().trim().includes("delivered"));
     if (status === "pending") return filteredTrips.filter(t => {
@@ -871,18 +895,15 @@ export default function AdvancedViewControl() {
           <p className="text-xs font-semibold uppercase text-blue-600">Overall Rate</p>
           <div className="mt-3 flex items-end justify-between">
             <p className="text-3xl font-bold text-blue-700">
-              {calculatePickupStatusMetrics.totalPickupRaised > 0
-                ? (
-                    (calculatePickupStatusMetrics.totalPickupDone /
-                      calculatePickupStatusMetrics.totalPickupRaised) *
-                    100
-                  ).toFixed(1)
-                : "0"}%
+              {overallCompletion.rate.toFixed(1)}%
             </p>
             <div className="rounded-lg bg-blue-100 p-3">
               <TrendingDown className="h-5 w-5 text-blue-600" />
             </div>
           </div>
+          <p className="mt-2 text-xs text-blue-700">
+            {overallCompletion.completedTrips} of {overallCompletion.totalTrips} completed
+          </p>
         </div>
       </div>
 
@@ -1224,13 +1245,17 @@ export default function AdvancedViewControl() {
                 <div className="space-y-3">
                   {getTripsForStatus(selectedStatusModal).map((trip, index) => (
                     <div
-                      key={index}
+                      key={`trip-${index}-${trip.tripId || 'no-id'}`}
                       className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 transition-colors"
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase text-slate-500">Trip ID</p>
-                          <p className="text-sm font-bold text-slate-900 mt-1">{trip.tripId}</p>
+                          <p className="text-sm font-bold text-slate-900 mt-1">
+                            {trip.tripId && trip.tripId.trim() && trip.tripId !== "-" 
+                              ? trip.tripId 
+                              : <span className="text-slate-400 italic">No Trip ID</span>}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase text-slate-500">Status</p>

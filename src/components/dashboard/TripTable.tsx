@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isTripNotCreated } from "@/lib/tripUtils";
 
 interface TripTableProps {
   trips: Trip[];
@@ -108,7 +109,11 @@ export default function TripTable({
     let result = [...trips];
 
     if (statusFilter !== "all") {
-      result = result.filter((t) => t.tripStatus === statusFilter);
+      result = result.filter((t) =>
+        statusFilter === "Trip Not Created"
+          ? isTripNotCreated(t)
+          : t.tripStatus === statusFilter
+      );
     }
 
     if (search.trim()) {
