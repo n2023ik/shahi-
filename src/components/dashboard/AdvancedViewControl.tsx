@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { Trip, StockDeficiency, DeviceUtilization, OverallDeviceMetrics, PickupStatusMetrics } from "@/lib/types";
 import { fetchTrips, fetchStockDeficiency } from "@/lib/sheetsApi";
-import { isTripNotCreated } from "@/lib/tripUtils";
 
 // Add this helper function at the top (after imports)
 function parseDate(dateStr?: string): Date | null {
@@ -204,9 +203,6 @@ export default function AdvancedViewControl() {
         .map((t) => t.tripStatus)
         .filter((s) => s && s.trim())
     );
-    if (trips.some((t) => isTripNotCreated(t))) {
-      statuses.add("Trip Not Created");
-    }
     return ["All", ...Array.from(statuses).sort()];
   }, [trips]);
 
@@ -226,10 +222,7 @@ export default function AdvancedViewControl() {
         filters.transporter === "All" ||
         trip.transporterName === filters.transporter;
       const statusMatch =
-        filters.status === "All" ||
-        (filters.status === "Trip Not Created"
-          ? isTripNotCreated(trip)
-          : trip.tripStatus === filters.status);
+        filters.status === "All" || trip.tripStatus === filters.status;
 
       return originMatch && destMatch && transporterMatch && statusMatch;
     });
@@ -408,15 +401,6 @@ export default function AdvancedViewControl() {
       totalPickupDone,
     };
   }, [filteredTrips]);
-
-  const overallCompletion = useMemo(() => {
-    const totalTrips = trips.length;
-    const completedTrips = trips.filter(
-      (trip) => trip.tripStatus === "Trip Completed"
-    ).length;
-    const rate = totalTrips > 0 ? (completedTrips / totalTrips) * 100 : 0;
-    return { totalTrips, completedTrips, rate };
-  }, [trips]);
 
   // =========================================================================
   // AUTO-REFRESH EFFECT
@@ -894,16 +878,24 @@ export default function AdvancedViewControl() {
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase text-blue-600">Overall Rate</p>
           <div className="mt-3 flex items-end justify-between">
-            <p className="text-3xl font-bold text-blue-700">
-              {overallCompletion.rate.toFixed(1)}%
-            </p>
+            <div>
+              <p className="text-3xl font-bold text-blue-700">
+                {calculateMetrics.totalTrips > 0
+                  ? (
+                      (calculateMetrics.delivered /
+                        calculateMetrics.totalTrips) *
+                      100
+                    ).toFixed(1)
+                  : "0"}%
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                {calculateMetrics.delivered} of {calculateMetrics.totalTrips} completed
+              </p>
+            </div>
             <div className="rounded-lg bg-blue-100 p-3">
               <TrendingDown className="h-5 w-5 text-blue-600" />
             </div>
           </div>
-          <p className="mt-2 text-xs text-blue-700">
-            {overallCompletion.completedTrips} of {overallCompletion.totalTrips} completed
-          </p>
         </div>
       </div>
 
