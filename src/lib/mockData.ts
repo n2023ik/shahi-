@@ -1,6 +1,6 @@
 import { Trip, TripStatus, DashboardData, LocationMetrics, GlobalSummary } from "./types";
 
-const statuses: TripStatus[] = ["Trip Completed", "In Transit", "Awaiting to Departure", "Trip Not Created"];
+const statuses: TripStatus[] = ["Trip Completed", "In Transit", "Awaiting to Departure", "Trip Not Created", "Offline"];
 const transporters = ["BlueDart Express", "Delhivery", "DTDC", "Ecom Express", "XpressBees", "Shadowfax", "Rivigo"];
 const sources = ["Mumbai, MH", "Delhi, DL", "Bangalore, KA", "Hyderabad, TS", "Chennai, TN", "Pune, MH", "Kolkata, WB", "Ahmedabad, GJ"];
 const destinations = ["Jaipur, RJ", "Lucknow, UP", "Chandigarh, CH", "Indore, MP", "Nagpur, MH", "Patna, BR", "Bhopal, MP", "Kochi, KL"];

@@ -164,6 +164,7 @@ function normalizeTripStatus(status: string): TripStatus {
   if (s.includes("transit") || s.includes("in-transit")) return "In Transit";
   if (s.includes("awaiting") || s.includes("departure")) return "Awaiting to Departure";
   if (s.includes("not") && (s.includes("completed") || s.includes("created"))) return "Trip Not Created";
+  if (s.includes("offline")) return "Offline";
 
   return "Awaiting to Departure";
 }

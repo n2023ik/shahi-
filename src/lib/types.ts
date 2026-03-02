@@ -22,7 +22,7 @@ export interface Trip {
   serialNumbers?: string[];
 }
 
-export type TripStatus = "Trip Completed" | "In Transit" | "Awaiting to Departure" | "Trip Not Created";
+export type TripStatus = "Trip Completed" | "In Transit" | "Awaiting to Departure" | "Trip Not Created" | "Offline";
 
 export interface KPIData {
   label: string;

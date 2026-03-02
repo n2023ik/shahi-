@@ -76,7 +76,7 @@ interface DashboardMetrics {
   awaitingDeparture: number;
   pickupRaisedInternally: number;
   pickupCompleted: number;
-  other: number;
+  offline: number;
 }
 
 // ============================================================================
@@ -243,7 +243,7 @@ export default function AdvancedViewControl() {
       awaitingDeparture: 0,
       pickupRaisedInternally: 0,
       pickupCompleted: 0,
-      other: 0,
+      offline: 0,
     };
 
     filteredTrips.forEach((trip) => {
@@ -265,13 +265,13 @@ export default function AdvancedViewControl() {
         return; // Skip agar Trip Creation Date empty hai
       }
 
-      // Count other statuses
-      if (statusLower.includes("transit")) metrics.inTransit++;
+      // Count statuses
+      if (statusLower.includes("offline")) metrics.offline++;
+      else if (statusLower.includes("transit")) metrics.inTransit++;
       else if (statusLower.includes("awaiting")) metrics.awaitingDeparture++;
 
       if (packetLower.includes("delivered")) metrics.delivered++; 
       else if (packetLower.includes("pending") || packetLower === "pending confirmation") metrics.pending++;
-      else if (!packetLower || packetLower === "-") metrics.other++;
 
       // Pickup Delay
       const delayDays = calculatePickupDelay(trip.pickupRaisedOn, trip.actualPickupDate);
@@ -451,6 +451,7 @@ export default function AdvancedViewControl() {
 
   const getTripsForStatus = (status: string): Trip[] => {
     if (status === "total") return filteredTrips;
+    if (status === "offline") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("offline"));
     if (status === "intransit") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("transit"));
     if (status === "completed") return filteredTrips.filter(t => {
       const s = t.tripStatus?.toLowerCase().trim() || "";
@@ -491,7 +492,6 @@ export default function AdvancedViewControl() {
       return filteredTrips.filter(trip => trip.packetStatus?.toLowerCase().trim() === "pickup done");
     }
 
-    if (status === "other") return filteredTrips.filter(t => !t.packetStatus || t.packetStatus === "-");
     return filteredTrips;
   };
 
@@ -821,17 +821,17 @@ export default function AdvancedViewControl() {
           </div>
         </button>
 
-        {/* Other Status */}
+        {/* Offline Status */}
         <button
-          onClick={() => handleKPIClick("other")}
+          onClick={() => handleKPIClick("offline")}
           className="rounded-lg bg-white p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:scale-105 transition-all hover:border-slate-400 cursor-pointer text-left"
         >
           <p className="text-xs font-semibold uppercase text-slate-500">
-            Other Status
+            Offline
           </p>
           <div className="mt-3 flex items-end justify-between">
             <p className="text-3xl font-bold text-slate-900">
-              {calculateMetrics.other}
+              {calculateMetrics.offline}
             </p>
             <div className="rounded-lg bg-slate-100 p-3">
               <Navigation className="h-5 w-5 text-slate-600" />
@@ -1209,6 +1209,7 @@ export default function AdvancedViewControl() {
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 capitalize">
                   {selectedStatusModal === "total" && "All Trips"}
+                  {selectedStatusModal === "offline" && "Offline Trips"}
                   {selectedStatusModal === "intransit" && "In Transit Trips"}
                   {selectedStatusModal === "completed" && "Completed Trips"}
                   {selectedStatusModal === "awaiting" && "Awaiting Departure Trips"}
@@ -1217,7 +1218,6 @@ export default function AdvancedViewControl() {
                   {selectedStatusModal === "pickupdelay" && "Pickup Delay"}
                   {selectedStatusModal === "pickupraised" && "Pickup Raised"}
                   {selectedStatusModal === "pickupdone" && "Pickup Done"}
-                  {selectedStatusModal === "other" && "Other Status"}
                 </h2>
                 <p className="text-sm text-slate-600 mt-1">
                   Total: {getTripsForStatus(selectedStatusModal).length} trips
