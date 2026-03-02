@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   TrendingDown,
   X,
+  XCircle,
 } from "lucide-react";
 import { Trip, StockDeficiency, DeviceUtilization, OverallDeviceMetrics, PickupStatusMetrics } from "@/lib/types";
 import { fetchTrips, fetchStockDeficiency } from "@/lib/sheetsApi";
@@ -77,6 +78,7 @@ interface DashboardMetrics {
   pickupRaisedInternally: number;
   pickupCompleted: number;
   offline: number;
+  tripCancel: number;
 }
 
 // ============================================================================
@@ -244,6 +246,7 @@ export default function AdvancedViewControl() {
       pickupRaisedInternally: 0,
       pickupCompleted: 0,
       offline: 0,
+      tripCancel: 0,
     };
 
     filteredTrips.forEach((trip) => {
@@ -269,6 +272,7 @@ export default function AdvancedViewControl() {
       if (statusLower.includes("offline")) metrics.offline++;
       else if (statusLower.includes("transit")) metrics.inTransit++;
       else if (statusLower.includes("awaiting")) metrics.awaitingDeparture++;
+      else if (statusLower.includes("cancel")) metrics.tripCancel++;
 
       if (packetLower.includes("delivered")) metrics.delivered++; 
       else if (packetLower.includes("pending") || packetLower === "pending confirmation") metrics.pending++;
@@ -452,6 +456,7 @@ export default function AdvancedViewControl() {
   const getTripsForStatus = (status: string): Trip[] => {
     if (status === "total") return filteredTrips;
     if (status === "offline") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("offline"));
+    if (status === "tripcancel") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("cancel"));
     if (status === "intransit") return filteredTrips.filter(t => t.tripStatus?.toLowerCase().trim().includes("transit"));
     if (status === "completed") return filteredTrips.filter(t => {
       const s = t.tripStatus?.toLowerCase().trim() || "";
@@ -835,6 +840,24 @@ export default function AdvancedViewControl() {
             </p>
             <div className="rounded-lg bg-slate-100 p-3">
               <Navigation className="h-5 w-5 text-slate-600" />
+            </div>
+          </div>
+        </button>
+
+        {/* Trip Cancel */}
+        <button
+          onClick={() => handleKPIClick("tripcancel")}
+          className="rounded-lg bg-white p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:scale-105 transition-all hover:border-red-400 cursor-pointer text-left"
+        >
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Trip Cancel
+          </p>
+          <div className="mt-3 flex items-end justify-between">
+            <p className="text-3xl font-bold text-slate-900">
+              {calculateMetrics.tripCancel}
+            </p>
+            <div className="rounded-lg bg-red-100 p-3">
+              <XCircle className="h-5 w-5 text-red-600" />
             </div>
           </div>
         </button>

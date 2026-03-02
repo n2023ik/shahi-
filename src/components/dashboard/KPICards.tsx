@@ -55,6 +55,14 @@ const kpiConfig: { label: string; status?: TripStatus; icon: typeof Package; col
     bgColor: "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200",
     gradient: "from-red-400 to-red-600"
   },
+  { 
+    label: "Trip Cancel", 
+    status: "Trip Cancel", 
+    icon: XCircle, 
+    colorClass: "text-rose-600", 
+    bgColor: "bg-gradient-to-br from-rose-50 to-rose-100 hover:from-rose-100 hover:to-rose-200",
+    gradient: "from-rose-400 to-rose-600"
+  },
 ];
 
 export default function KPICards({ trips, selectedStatus, onStatusClick }: KPICardsProps) {

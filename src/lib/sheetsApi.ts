@@ -164,6 +164,7 @@ function normalizeTripStatus(status: string): TripStatus {
   if (s.includes("transit") || s.includes("in-transit")) return "In Transit";
   if (s.includes("awaiting") || s.includes("departure")) return "Awaiting to Departure";
   if (s.includes("not") && (s.includes("completed") || s.includes("created"))) return "Trip Not Created";
+  if (s.includes("cancel")) return "Trip Cancel";
   if (s.includes("offline")) return "Offline";
 
   return "Awaiting to Departure";
@@ -323,7 +324,8 @@ export async function fetchTrips(): Promise<Trip[]> {
     console.log("[fetchTrips] Calling Google Apps Script...");
     
     // Use "getTrips" action from the new Apps Script API
-    const result = await callAppsScript("getTrips", "GET");
+    // Pass limit parameter to fetch more than the default 100 rows
+    const result = await callAppsScript("getTrips", "GET", { limit: 500 });
 
     console.log("[fetchTrips] Raw API response:", result);
 
