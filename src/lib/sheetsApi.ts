@@ -1,0 +1,802 @@
+import { Trip, TripStatus, StockDeficiency } from "./types";
+import { config, getAppsScriptUrl } from "./config";
+import { NetworkError, ConfigurationError } from "./networkUtils";
+import { getUserEmail } from "./auth";
+
+// Get Apps Script URL from centralized config
+const APPS_SCRIPT_URL = getAppsScriptUrl();
+
+/**
+ * ========================================================
+ * SHEET CONFIGURATION (matches Config.gs in Apps Script)
+ * ========================================================
+ */
+export const SHEET_CONFIG = {
+  DASHBOARD: "DASHBOARD",
+  TRIP_DETAILS: "TRIP_DETAILS",
+  ALLOWED_USERS: "ALLOWED_USERS",
+} as const;
+
+export type SheetConfigKey = keyof typeof SHEET_CONFIG;
+
+/* ============================================================
+   DIRECT GOOGLE APPS SCRIPT CALL
+============================================================ */
+
+async function callAppsScript(
+  action: string,
+  method: "GET" | "POST" = "POST",
+  data?: Record<string, unknown>
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), config.api.timeout);
+
+  try {
+    let url = APPS_SCRIPT_URL;
+    let init: RequestInit = {
+      signal: controller.signal,
+      // CRITICAL: Avoid CORS preflight by not sending custom headers for GET requests
+      // and using simple headers for POST
+    };
+
+    if (method === "GET") {
+      // For GET requests: NO custom headers to avoid CORS preflight
+      // Properly construct URL with encoded parameters
+      const params = new URLSearchParams({ action });
+      if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        });
+      }
+      url = `${APPS_SCRIPT_URL}?${params.toString()}`;
+      init.method = "GET";
+    } else {
+      // For POST requests: Use URL-encoded form data to avoid CORS preflight
+      // This is the most reliable way to avoid OPTIONS preflight with Apps Script
+      init.method = "POST";
+      
+      // Create URL-encoded form data
+      const formBody = new URLSearchParams();
+      formBody.append('action', action);
+      
+      // Add all data fields as URL parameters
+      if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+          if (typeof value === 'object' && value !== null) {
+            // Stringify objects
+            formBody.append(key, JSON.stringify(value));
+          } else {
+            formBody.append(key, String(value ?? ''));
+          }
+        });
+      }
+      
+      init.body = formBody;
+      // Don't set Content-Type - browser will auto-set to application/x-www-form-urlencoded
+    }
+
+    console.log(`[sheetsApi] Calling Apps Script: ${method} ${url.substring(0, 100)}...`);
+    if (method === "POST" && data) {
+      console.log(`[sheetsApi] POST data:`, data);
+    }
+
+    const res = await fetch(url, init);
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(
+        `[sheetsApi] Apps Script returned ${res.status}:`,
+        err.substring(0, 200)
+      );
+      throw new Error(`Apps Script error (${res.status}): ${err}`);
+    }
+
+    // Get response as text first to handle non-JSON responses
+    const responseText = await res.text();
+
+    try {
+      const jsonResponse = JSON.parse(responseText);
+      console.log(`[sheetsApi] Response:`, jsonResponse);
+      
+      // Check if response contains an error
+      if (jsonResponse.error) {
+        console.error(`[sheetsApi] Server returned error:`, jsonResponse.error);
+        // Throw a regular error, not ConfigurationError
+        const error = new Error(jsonResponse.error);
+        error.name = 'ServerError';
+        throw error;
+      }
+      
+      return jsonResponse;
+    } catch (jsonError) {
+      // If it's already our thrown error, re-throw it
+      if (jsonError instanceof Error && jsonError.name === 'ServerError') {
+        throw jsonError;
+      }
+      
+      // Otherwise it's a JSON parsing error
+      console.error("❌ Invalid JSON response from Apps Script:", responseText.substring(0, 200));
+      throw new ConfigurationError(
+        `Apps Script returned invalid JSON. Response starts with: "${responseText.substring(0, 50)}...". ` +
+        `This might indicate: 1) Wrong Apps Script URL, 2) Script not deployed, or 3) Invalid response format. ` +
+        `Check: 1) VITE_GOOGLE_SHEETS_API_URL in .env, 2) Google Apps Script deployed with "Execute as me" and "Anyone" access`
+      );
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Convert network-related errors to NetworkError
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error("Request timeout - the server took too long to respond");
+    }
+
+    // Better error messaging for fetch errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error("Fetch error:", error);
+      throw new Error("Could not connect to server - please verify your Apps Script deployment");
+    }
+
+    console.error("Apps Script call failed:", error);
+    throw error;
+  }
+}
+
+/* ============================================================
+   NORMALIZATION
+============================================================ */
+
+function normalizeTripStatus(status: string): TripStatus {
+  const s = status?.toLowerCase().trim() || "";
+
+  if (s.includes("completed") && !s.includes("not")) return "Trip Completed";
+  if (s.includes("transit") || s.includes("in-transit")) return "In Transit";
+  if (s.includes("awaiting") || s.includes("departure") || s.includes("inside source")) return "Awaiting to Departure";
+  if (s.includes("not") && (s.includes("completed") || s.includes("created"))) return "Trip Not Created";
+  if (s.includes("cancel")) return "Trip Cancel";
+  if (s.includes("offline")) return "Offline";
+
+  return "Awaiting to Departure";
+}
+
+/**
+ * Convert from frontend TripStatus to Google Sheet's expected format
+ * Sheet validation requires specific values with specific casing
+ */
+function denormalizeTripStatus(status: TripStatus): string {
+  switch (status) {
+    case "In Transit":
+      return "in_transit";
+    case "Offline":
+      return "offline";
+    case "Awaiting to Departure":
+      return "Inside Source";
+    case "Trip Completed":
+      return "Trip Completed";
+    case "Trip Not Created":
+      return "Trip Not Created";
+    case "Trip Cancel":
+      return "Trip Cancel";
+    default:
+      return status;
+  }
+}
+
+function formatDate(val: string | any): string {
+  if (!val) return "";
+  
+  // Convert to string and trim
+  const strVal = String(val).trim();
+  if (!strVal || strVal === "NaN" || strVal === "undefined" || strVal === "null") return "";
+
+  try {
+    // If already in dd/mm/yyyy format, return as is
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(strVal)) {
+      return strVal;
+    }
+
+    // Handle dd-mm-yyyy (or d-m-yyyy) explicitly before generic Date parsing.
+    // Example: 17-04-2026 should become 17/04/2026.
+    const ddMmYyyyMatch = strVal.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (ddMmYyyyMatch) {
+      const day = ddMmYyyyMatch[1].padStart(2, "0");
+      const month = ddMmYyyyMatch[2].padStart(2, "0");
+      const year = ddMmYyyyMatch[3];
+      return `${day}/${month}/${year}`;
+    }
+
+    // If in ISO format or other date format, convert to dd/mm/yyyy
+    if (strVal.includes("T") || strVal.includes("-")) {
+      const date = new Date(strVal);
+      if (isNaN(date.getTime())) return "";
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    // If in ddmmyyyy format (8 digits), convert to dd/mm/yyyy
+    if (/^\d{8}$/.test(strVal)) {
+      const day = strVal.substring(0, 2);
+      const month = strVal.substring(2, 4);
+      const year = strVal.substring(4, 8);
+      return `${day}/${month}/${year}`;
+    }
+
+    // If it's a number (like Excel date serial), try to convert
+    if (/^\d+$/.test(strVal)) {
+      const dateNum = parseInt(strVal, 10);
+      if (dateNum > 0 && dateNum < 100000) { // Reasonable date serial range
+        // Excel stores dates as days since 1/1/1900
+        const baseDate = new Date(1900, 0, 1);
+        const date = new Date(baseDate.getTime() + (dateNum - 1) * 24 * 60 * 60 * 1000);
+        if (!isNaN(date.getTime())) {
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        }
+      }
+    }
+
+    return strVal;
+  } catch {
+    return "";
+  }
+}
+
+/* ============================================================
+   MAPPER
+============================================================ */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapObjectToTrip(row: any, index: number): Trip {
+  const tripCreationDateRaw = String(row["Trip Creation Date"] || row.tripCreationDate || "").trim();
+  const tripIdRaw = String(row["Trip Id"] || row.tripId || "").trim();
+  const rawTripStatus = String(row["Trip status"] || row.tripStatus || "").trim();
+
+  const hasNotCreatedText = (value: string) => {
+    const normalized = value.toLowerCase();
+    return (
+      normalized.includes("not created") ||
+      normalized.includes("trip not created") ||
+      normalized.includes("not creted") ||
+      normalized.includes("trip not creted")
+    );
+  };
+  
+  const isNotCreatedDateText = hasNotCreatedText(tripCreationDateRaw);
+  const isNotCreatedIdText = hasNotCreatedText(tripIdRaw);
+  // Check if Trip Creation Date or Trip ID contains "Trip Not Created" text
+  const isNotCreated = isNotCreatedDateText || isNotCreatedIdText;
+  const normalizedTripStatus = normalizeTripStatus(rawTripStatus);
+  const tripStatus = rawTripStatus
+    ? normalizedTripStatus
+    : isNotCreated
+      ? "Trip Not Created"
+      : normalizedTripStatus;
+  
+  const trip = {
+    sNo: row["S.No."] || row["Sr."] || row.sNo || index + 1,
+    sheetRowNumber: row.__rowNumber ? Number(row.__rowNumber) : undefined,
+    // Keep "Trip Not Created" text as-is, otherwise format the date
+    tripCreationDate: isNotCreatedDateText ? tripCreationDateRaw : formatDate(tripCreationDateRaw),
+    tripCompletionDate: formatDate(row["Trip Completion Date"] || row.tripCompletionDate || ""),
+    tripId: tripIdRaw,
+    vehicleNo: row["Vehicle No."] || row.vehicleNo || "",
+    assetTracker: String(row["Asset Tracker"] || row.assetTracker || ""),
+    mode: String(row["Mode"] || row["MODE"] || row.mode || "").trim(),
+    sourceAddress: row["Source Address"] || row.sourceAddress || "",
+    destinationAddress: row["Destination Address"] || row.destinationAddress || "",
+    transporterName: row["Transporter Name"] || row.transporterName || "",
+    tripStatus,
+    packetStatus: row["Packet Status"] || row.packetStatus || "",
+    pickupStatus: row["Pickup Status"] || row["Pick-up Status"] || row["Pickup"] || row.pickupStatus || row.pickup || "",
+    pickupRaisedOn: formatDate(row["Pick-up Raised On"] || row.pickupRaisedOn || ""),
+    taskId: row["Task ID"] || row.taskId || "",
+    zohoTicketId: row["Zoho Ticket ID"] || row.zohoTicketId || "",
+    actualPickupDate: formatDate(row["Actual Pick-up Date"] || row.actualPickupDate || ""),
+    deliveredDate: formatDate(row["Delivered Date"] || row.deliveredDate || ""),
+    remarks: row["Remarks"] || row.remarks || "",
+    isTripNotCreated: isNotCreated,
+    deviceCount: undefined as number | undefined,
+    serialNumbers: undefined as string[] | undefined,
+  };
+
+  // Parse Asset Tracker IDs into serialNumbers array
+  const assetTrackerRaw = String(row["Asset Tracker"] || row.assetTracker || "").trim();
+  if (assetTrackerRaw && assetTrackerRaw !== "N/A" && assetTrackerRaw !== "-" && assetTrackerRaw !== "") {
+    // Split by comma, newline, or semicolon, then filter and clean
+    const serialNumbers = assetTrackerRaw
+      .split(/[\n,;]+/)
+      .map(s => s.trim())
+      .filter(s => s && s !== "N/A" && s !== "-");
+    
+    if (serialNumbers.length > 0) {
+      trip.serialNumbers = serialNumbers;
+      trip.deviceCount = serialNumbers.length;
+    }
+  }
+
+  // Debug log for first 3 trips
+  if (index < 3) {
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Packet Status:`, trip.packetStatus);
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Asset Tracker IDs:`, trip.serialNumbers);
+    console.log(`[mapObjectToTrip] Trip #${index + 1} - Device Count:`, trip.deviceCount);
+  }
+
+  return trip;
+}
+
+/* ============================================================
+   API METHODS
+============================================================ */
+
+export async function fetchTrips(): Promise<Trip[]> {
+  try {
+    // Check if Apps Script URL is configured
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
+      throw new ConfigurationError(
+        "Google Apps Script not configured. " +
+        "To connect to Google Sheets: " +
+        "1. Deploy your Apps Script as a Web App, " +
+        "2. Add VITE_GOOGLE_SHEETS_API_URL to .env file. " +
+        "See GOOGLE_SHEETS_SETUP.md for instructions."
+      );
+    }
+
+    console.log("[fetchTrips] Calling Google Apps Script (paginated)...");
+
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 30;
+    const tripsData: unknown[] = [];
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const offset = page * PAGE_SIZE;
+      const pageResult = await callAppsScript("getTrips", "GET", {
+        limit: PAGE_SIZE,
+        offset,
+      });
+
+      let pageTrips = pageResult;
+      if (!Array.isArray(pageResult) && pageResult.trips && Array.isArray(pageResult.trips)) {
+        pageTrips = pageResult.trips;
+      }
+
+      if (!Array.isArray(pageTrips)) {
+        console.error("⚠️ Unexpected response format:", pageResult);
+        throw new Error("Invalid trip data format received from server");
+      }
+
+      tripsData.push(...pageTrips);
+      console.log(`[fetchTrips] Page ${page + 1}: ${pageTrips.length} rows (total: ${tripsData.length})`);
+
+      if (pageTrips.length < PAGE_SIZE) {
+        break;
+      }
+    }
+
+    console.log(`[fetchTrips] Got ${tripsData.length} raw trip records from API`);
+    
+    if (tripsData.length > 0) {
+      console.log("[fetchTrips] First raw record:", tripsData[0]);
+    }
+
+    const allTrips = tripsData
+      .map((row, index) => {
+        const trip = mapObjectToTrip(row, index);
+        if (index === 0) {
+          console.log("[fetchTrips] First mapped trip:", trip);
+        }
+        // Log "Trip Not Created" entries for debugging
+        if (trip.tripStatus === "Trip Not Created") {
+          console.log(`[fetchTrips] Found "Trip Not Created" - S.No: ${trip.sNo}, Trip ID: ${trip.tripId}, Date: "${trip.tripCreationDate}"`);
+        }
+        return trip;
+      })
+      // Filter out trips that don't have S.No. and Trip Creation Date
+      // Note: "Trip Not Created" is considered valid (not empty)
+      .filter((trip) => {
+        const hasSerialNo = trip.sNo && trip.sNo > 0;
+        const tripDate = trip.tripCreationDate?.trim() || "";
+        
+        // Check if trip creation date exists (can be actual date or "Trip Not Created")
+        const hasTripCreationDate = tripDate !== "";
+        
+        if (!hasSerialNo || !hasTripCreationDate) {
+          console.log(`[fetchTrips] Excluding trip - S.No: ${trip.sNo}, Date: "${tripDate}", Trip ID: ${trip.tripId}`);
+          return false;
+        }
+        
+        return true;
+      });
+
+    console.log(
+      `✅ Successfully loaded ${allTrips.length} valid trips from Google Sheets (filtered from ${tripsData.length} total records)`
+    );
+    
+    if (allTrips.length > 0) {
+      console.log("[fetchTrips] Trip statuses:", allTrips.map(t => ({ id: t.tripId, status: t.tripStatus, date: t.tripCreationDate })));
+    }
+    
+    return allTrips;
+  } catch (error) {
+    console.error("❌ Failed to fetch trips from Google Sheets:", error);
+    
+    // Don't use mock data - throw the error so UI can handle it
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    throw new Error(`Failed to load trip data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+export async function createTrip(trip: Trip) {
+  try {
+    // Use "create" action from the new Apps Script API
+    const rowData = tripToSheetRow(trip);
+    const userEmail = getUserEmail();
+    console.log("[createTrip] User Email from storage:", userEmail);
+    console.log("[createTrip] Creating trip:", trip.tripId, "by:", userEmail || "NO EMAIL FOUND", rowData);
+    const result = await callAppsScript("create", "POST", {
+      action: "create",
+      sheet: "Shahi Reverse Pickup/Trip Details",
+      userEmail: userEmail || "Unknown User",
+      data: rowData,
+    });
+    console.log("[createTrip] Success:", result);
+    return result;
+  } catch (error) {
+    console.error("Create trip failed:", error);
+    throw error;
+  }
+}
+
+export async function updateTrip(trip: Trip) {
+  try {
+    // Use "update" action from the new Apps Script API
+    const rowData = tripToSheetRow(trip);
+    const userEmail = getUserEmail();
+    console.log("[updateTrip] Updating trip:", trip.tripId, "by:", userEmail, rowData);
+    const result = await callAppsScript("update", "POST", {
+      action: "update",
+      sheet: "Shahi Reverse Pickup/Trip Details",
+      idColumn: "Trip Id",
+      idValue: trip.tripId,
+      userEmail: userEmail || "Unknown User",
+      updates: {
+        ...rowData,
+        __rowNumber: trip.sheetRowNumber,
+      },
+    });
+    console.log("[updateTrip] Success:", result);
+    return result;
+  } catch (error) {
+    console.error("Update trip failed:", error);
+    throw error;
+  }
+}
+
+export async function deleteTrip(tripId: string) {
+  try {
+    const userEmail = getUserEmail();
+    console.log("[deleteTrip] Deleting trip:", tripId, "by:", userEmail);
+    const result = await callAppsScript("delete", "POST", {
+      action: "delete",
+      sheet: "Shahi Reverse Pickup/Trip Details",
+      idColumn: "Trip Id",
+      idValue: tripId,
+      userEmail: userEmail || "Unknown User",
+    });
+    console.log("[deleteTrip] Success:", result);
+    return result;
+  } catch (error) {
+    console.error("Delete trip failed:", error);
+    throw error;
+  }
+}
+
+/* ============================================================
+   SHEET FORMATTER
+============================================================ */
+
+function tripToSheetRow(trip: Trip) {
+  return {
+    "S.No.": trip.sNo,
+    "Sr.": trip.sNo,
+    "Trip Creation Date": trip.tripCreationDate,
+    "Trip Completion Date": trip.tripCompletionDate,
+    "Trip Id": trip.tripId,
+    "Vehicle No.": trip.vehicleNo,
+    "Asset Tracker": trip.assetTracker,
+    "Mode": trip.mode,
+    "MODE": trip.mode,
+    "Source Address": trip.sourceAddress,
+    "Destination Address": trip.destinationAddress,
+    "Transporter Name": trip.transporterName,
+    "Trip status": denormalizeTripStatus(trip.tripStatus), // Convert to sheet format
+    "Packet Status": trip.packetStatus,
+    "Pickup Status": trip.pickupStatus,
+    "Pick-up Raised On": trip.pickupRaisedOn,
+    "Task ID": trip.taskId,
+    "Zoho Ticket ID": trip.zohoTicketId,
+    "Actual Pick-up Date": trip.actualPickupDate,
+    "Delivered Date": trip.deliveredDate,
+    "Remarks": trip.remarks,
+  };
+}
+
+/* ============================================================
+   STOCK DEFICIENCY FETCH
+============================================================ */
+
+/**
+ * Fetches stock data from dashboard sheet and calculates deficiency
+ * based on 80% threshold
+ * 
+ * Sheet name comes from config (VITE_SHEET_DASHBOARD in .env)
+ */
+export async function fetchStockDeficiency(): Promise<StockDeficiency[]> {
+  try {
+    // Check if Apps Script URL is configured
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
+      throw new ConfigurationError(
+        "Google Apps Script not configured. " +
+        "To connect to Google Sheets: " +
+        "1. Deploy your Apps Script as a Web App, " +
+        "2. Add VITE_GOOGLE_SHEETS_API_URL to .env file"
+      );
+    }
+
+    // Fetch stock data using "getStockData" action
+    const result = await callAppsScript("getStockData", "GET");
+
+    // Handle both array response and object with stockData property
+    let stockData = result;
+    if (!Array.isArray(result) && result.stockData && Array.isArray(result.stockData)) {
+      stockData = result.stockData;
+    }
+
+    if (!Array.isArray(stockData)) {
+      console.error("⚠️ Unexpected stock data response format:", result);
+      throw new Error("Invalid stock data format received from server");
+    }
+
+    // Map and calculate stock deficiency
+    const deficiencies = stockData
+      .map((row: any, index: number) => mapStockDeficiency(row, index))
+      .filter((item): item is StockDeficiency => item !== null);
+
+    console.log(`✅ Successfully loaded ${deficiencies.length} stock locations`);
+    return deficiencies;
+  } catch (error) {
+    console.error("❌ Failed to fetch stock data from Google Sheets:", error);
+    
+    // Don't use mock data - throw the error so UI can handle it
+    if (error instanceof NetworkError || error instanceof ConfigurationError) {
+      throw error;
+    }
+    
+    // Provide helpful error message for common issues
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('Invalid GET action')) {
+      throw new Error(
+        'Stock data endpoint not available in your deployed Apps Script. ' +
+        'Please deploy DashboardData_v2.gs following the setup guide.'
+      );
+    }
+    
+    throw new Error(`Failed to load stock data: ${errorMessage}`);
+  }
+}
+
+function mapStockDeficiency(row: any, index: number): StockDeficiency | null {
+  // Extract source/location name
+  const source = row["Location"] || row["Source"] || row["sourceAddress"] || row["locationName"] || `Location ${index + 1}`;
+  
+  // Extract "device in use" from sheets (various possible field names)
+  const devicesInUse = parseInt(
+    row["device in use"] || 
+    row["Device in use"] || 
+    row["Devices In Use"] ||
+    row["devicesInUse"] || 
+    "0"
+  );
+  
+  // Extract "device avilable" from sheets (note: misspelling in sheets)
+  const availableDevices = parseInt(
+    row["device avilable"] || // Typo in original sheet
+    row["device available"] || 
+    row["Device available"] ||
+    row["Available Devices"] || 
+    row["Available"] || 
+    row["Current Stock"] || 
+    "0"
+  );
+  
+  // Max capacity = devices in use + devices available
+  const maxCapacity = devicesInUse + availableDevices;
+
+  if (!source || maxCapacity <= 0) {
+    return null;
+  }
+
+  // Calculate utilization percentage: (devices in use / total) * 100
+  const utilization = (devicesInUse / maxCapacity) * 100;
+  
+  // Calculate deficiency: how many devices needed to reach 80%
+  const threshold80Percent = (maxCapacity * 80) / 100;
+  const deficiency = Math.max(0, Math.ceil(threshold80Percent - availableDevices));
+
+  // Determine status based on utilization (devices in use)
+  let status: "critical" | "warning" | "optimal";
+  if (utilization >= 80) {
+    status = "critical"; // 80%+ utilization = critical
+  } else if (utilization >= 60) {
+    status = "warning";  // 60-79% = warning
+  } else {
+    status = "optimal";  // <60% = normal
+  }
+
+  if (index === 0) {
+    console.log("[mapStockDeficiency] First row mapping:", {
+      source,
+      devicesInUse,
+      availableDevices,
+      maxCapacity,
+      utilization: utilization.toFixed(1) + "%",
+      status
+    });
+  }
+
+  return {
+    source: source.trim(),
+    devicesInUse,
+    availableDevices,
+    maxCapacity,
+    utilization: Math.round(utilization * 10) / 10, // Round to 1 decimal
+    deficiency,
+    status,
+  };
+}
+
+function generateMockStockDeficiency(): StockDeficiency[] {
+  return [
+    {
+      source: "Bangalore, KA",
+      devicesInUse: 0,
+      availableDevices: 45,
+      maxCapacity: 100,
+      utilization: 0,
+      deficiency: 35,
+      status: "optimal",
+    },
+    {
+      source: "Delhi, DL",
+      devicesInUse: 0,
+      availableDevices: 72,
+      maxCapacity: 100,
+      utilization: 0,
+      deficiency: 8,
+      status: "optimal",
+    },
+    {
+      source: "Mumbai, MH",
+      devicesInUse: 0,
+      availableDevices: 89,
+      maxCapacity: 100,
+      utilization: 0,
+      deficiency: 0,
+      status: "optimal",
+    },
+    {
+      source: "Hyderabad, TS",
+      devicesInUse: 0,
+      availableDevices: 62,
+      maxCapacity: 100,
+      utilization: 0,
+      deficiency: 18,
+      status: "optimal",
+    },
+    {
+      source: "Chennai, TN",
+      devicesInUse: 0,
+      availableDevices: 38,
+      maxCapacity: 100,
+      utilization: 0,
+      deficiency: 42,
+      status: "optimal",
+    },
+  ];
+}
+
+/* ============================================================
+   FETCH ALL SHEETS DATA
+============================================================ */
+
+/**
+ * Fetch data from all configured sheets in one API call
+ * Returns a comprehensive object with all sheet data
+ */
+export async function fetchAllSheetsData(): Promise<{
+  sheetNames: string[];
+  sheets: Record<string, {
+    sheetName: string;
+    rowCount: number;
+    data: unknown[];
+    error?: string;
+  }>;
+}> {
+  try {
+    // Check if Apps Script URL is configured
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
+      console.warn(
+        "⚠️ Google Apps Script not configured.\n" +
+        "Using mock data. See GOOGLE_SHEETS_CONFIG_SETUP.md for setup instructions."
+      );
+      
+      // Return mock structure
+      return {
+        sheetNames: Object.keys(SHEET_CONFIG),
+        sheets: {
+          [SHEET_CONFIG.DASHBOARD]: {
+            sheetName: config.sheets.dashboard,
+            rowCount: 0,
+            data: [],
+            error: "Not configured"
+          },
+          [SHEET_CONFIG.TRIP_DETAILS]: {
+            sheetName: config.sheets.tripDetails,
+            rowCount: 0,
+            data: [],
+            error: "Not configured"
+          }
+        }
+      };
+    }
+
+    const result = await callAppsScript("getAllSheets", "GET");
+
+    if (result && result.sheets) {
+      console.log(`✅ Successfully fetched data from ${Object.keys(result.sheets).length} sheets`);
+      return result;
+    }
+
+    throw new Error("Invalid response format from getAllSheets");
+  } catch (error) {
+    console.error("❌ Failed to fetch all sheets data:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get list of all configured sheet names from the API
+ */
+export async function fetchSheetNames(): Promise<string[]> {
+  try {
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "NOT_CONFIGURED" || APPS_SCRIPT_URL.includes("YOUR_DEPLOYMENT")) {
+      return Object.values(SHEET_CONFIG);
+    }
+
+    const result = await callAppsScript("getSheetNames", "GET");
+    
+    if (result && Array.isArray(result.sheets)) {
+      console.log(`✅ Available sheets: ${result.sheets.join(", ")}`);
+      return result.sheets;
+    }
+
+    return Object.values(SHEET_CONFIG);
+  } catch (error) {
+    console.error("❌ Failed to fetch sheet names:", error);
+    return Object.values(SHEET_CONFIG);
+  }
+}

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Apps Script CORS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status.good {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.bad {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Google Apps Script CORS Test</h1>
+        <p>इस tool से check करें कि आपकी Google Apps Script deployment सही है या नहीं।</p>
+        
+        <div class="input-group">
+            <label for="apiUrl">Google Apps Script Web App URL:</label>
+            <input 
+                type="text" 
+                id="apiUrl" 
+                placeholder="https://script.google.com/macros/s/AKfycbw.../exec"
+                value=""
+            >
+            <small>Hint: .env file में VITE_GOOGLE_SHEETS_API_URL की value यहाँ paste करें</small>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="testGET()">Test GET (Fetch Trips)</button>
+            <button onclick="testPOST()" class="secondary">Test POST (Create)</button>
+            <button onclick="clearResults()" style="background: #f44336;">Clear</button>
+        </div>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('result').innerHTML = '';
+        }
+
+        async function testGET() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!apiUrl) {
+                showResult('error', 'Please enter your Google Apps Script URL!');
+                return;
+            }
+
+            showResult('info', '⏳ Testing GET request...');
+
+            try {
+                const response = await fetch(`${apiUrl}?action=getTrips`, {
+                    method: 'GET'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let html = `
+                        <h3>✅ GET Request Successful!</h3>
+                        <p><span class="status good">Status: ${response.status}</span></p>
+                        <p>CORS is working properly! ✅</p>
+                        <p>Received ${Array.isArray(data) ? data.length : 'unknown'} trips</p>
+                        <details>
+                            <summary>View Response Data</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                        <hr>
+                        <p><strong>✅ Checklist:</strong></p>
+                        <ul>
+                            <li>✅ No CORS error</li>
+                            <li>✅ Response received</li>
+                            <li>✅ Deployment settings are correct</li>
+                        </ul>
+                    `;
+                    showResult('success', html);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                let html = `
+                    <h3>❌ GET Request Failed</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+
+                if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
+                    html += `
+                        <hr>
+                        <h4>🔧 CORS Error Fix:</h4>
+                        <ol>
+                            <li>Go to: <a href="https://script.google.com" target="_blank">script.google.com</a></li>
+                            <li>Open your DashboardData project</li>
+                            <li>Click: <strong>Deploy → New deployment</strong></li>
+                            <li>Set: <strong>Execute as: Me</strong></li>
+                            <li>Set: <strong>Who has access: Anyone</strong> ← Very Important!</li>
+                            <li>Click: <strong>Deploy</strong></li>
+                            <li>Authorize the permissions</li>
+                            <li>Copy the new Web app URL</li>
+                            <li>Update your .env file</li>
+                            <li>Restart dev server</li>
+                        </ol>
+                    `;
+                } else if (error.message.includes('401') || error.message.includes('403')) {
+                    html += `
+                        <hr>
+                        <h4>🔐 Authorization Error:</h4>
+                        <ul>
+                            <li>Check: "Execute as: Me" is selected</li>
+                            <li>Check: Authorization completed during deployment</li>
+                            <li>Try: Create NEW deployment (not edit existing)</li>
+                        </ul>
+                    `;
+                }
+
+                showResult('error', html);
+            }
+        }
+
+        async function testPOST() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            if (!apiUrl) {
+                showResult('error', 'Please enter your Google Apps Script URL!');
+                return;
+            }
+
+            showResult('info', '⏳ Testing POST request (Create)...');
+
+            try {
+                const testTrip = {
+                    "S.No.": 99999,
+                    "Trip Creation Date": new Date().toLocaleDateString('en-GB'),
+                    "Trip Id": "TEST_" + Date.now(),
+                    "Vehicle No.": "TEST-XX-9999",
+                    "Source Address": "Test Source",
+                    "Destination Address": "Test Destination",
+                    "Transporter Name": "Test Transporter",
+                    "Trip status": "Awaiting to Departure",
+                    "Remarks": "Test trip - can be deleted"
+                };
+
+                const body = {
+                    action: "create",
+                    sheet: "Shahi Reverse Pickup/Trip Details",
+                    data: testTrip
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    let html = `
+                        <h3>✅ POST Request Successful!</h3>
+                        <p><span class="status good">Status: ${response.status}</span></p>
+                        <p>Trip created: <strong>${testTrip["Trip Id"]}</strong></p>
+                        <p>✅ CORS is working!</p>
+                        <p>✅ Create/Update/Delete operations will work!</p>
+                        <details>
+                            <summary>View Response</summary>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </details>
+                        <hr>
+                        <p><strong>Next Steps:</strong></p>
+                        <ul>
+                            <li>✅ Go to your Google Sheet</li>
+                            <li>✅ Verify the test trip was created</li>
+                            <li>✅ You can delete it manually</li>
+                            <li>✅ Try creating/updating from your dashboard!</li>
+                        </ul>
+                    `;
+                    showResult('success', html);
+                } else {
+                    throw new Error(result.error || 'Create failed');
+                }
+
+            } catch (error) {
+                let html = `
+                    <h3>❌ POST Request Failed</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+
+                if (error.message.includes('CORS')) {
+                    html += `
+                        <hr>
+                        <p>⚠️ Same CORS fix needed as described in GET test above.</p>
+                    `;
+                }
+
+                showResult('error', html);
+            }
+        }
+
+        function showResult(type, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result ' + type;
+            resultDiv.innerHTML = content;
+            resultDiv.style.display = 'block';
+        }
+
+        // Auto-load URL from localStorage
+        window.onload = function() {
+            const savedUrl = localStorage.getItem('apiUrl');
+            if (savedUrl) {
+                document.getElementById('apiUrl').value = savedUrl;
+            }
+
+            // Save URL on change
+            document.getElementById('apiUrl').addEventListener('change', function() {
+                localStorage.setItem('apiUrl', this.value);
+            });
+        };
+    </script>
+</body>
+</html>
