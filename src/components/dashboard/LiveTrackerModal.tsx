@@ -42,21 +42,28 @@ export const LiveTrackerModal = ({ isOpen, onClose }: LiveTrackerModalProps) => 
   useEffect(() => {
     if (!isOpen || !canvasContainerRef.current) return;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
+    const containerElement = canvasContainerRef.current;
+
+    const width = containerElement.clientWidth || window.innerWidth;
+    const height = containerElement.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.bg);
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     camera.position.set(15, 12, 15);
+    camera.lookAt(0, 1, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(width, height, true);
+    renderer.setPixelRatio(getPixelRatio());
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    canvasContainerRef.current.appendChild(renderer.domElement);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
+    containerElement.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -222,18 +229,31 @@ export const LiveTrackerModal = ({ isOpen, onClose }: LiveTrackerModalProps) => 
     };
 
     const handleResize = () => {
-      const newWidth = window.innerWidth;
-      const newHeight = window.innerHeight;
+      const newWidth = containerElement.clientWidth || window.innerWidth;
+      const newHeight = containerElement.clientHeight || window.innerHeight;
+      if (!newWidth || !newHeight) return;
+      renderer.setPixelRatio(getPixelRatio());
       camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(newWidth, newHeight);
+      renderer.setSize(newWidth, newHeight, true);
     };
 
-    canvasContainerRef.current.addEventListener('mousedown', handleMouseDown);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleResize();
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerElement);
+
+    containerElement.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('mousemove', handleMouseMove);
-    canvasContainerRef.current.addEventListener('wheel', handleWheel);
+    containerElement.addEventListener('wheel', handleWheel);
     window.addEventListener('resize', handleResize);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    handleResize();
 
     const animate = () => {
       animationIdRef.current = requestAnimationFrame(animate);
@@ -253,13 +273,15 @@ export const LiveTrackerModal = ({ isOpen, onClose }: LiveTrackerModalProps) => 
 
     return () => {
       if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current);
-      canvasContainerRef.current?.removeEventListener('mousedown', handleMouseDown);
+      resizeObserver.disconnect();
+      containerElement.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('mousemove', handleMouseMove);
-      canvasContainerRef.current?.removeEventListener('wheel', handleWheel);
+      containerElement.removeEventListener('wheel', handleWheel);
       window.removeEventListener('resize', handleResize);
-      if (renderer && canvasContainerRef.current?.contains(renderer.domElement)) {
-        canvasContainerRef.current.removeChild(renderer.domElement);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (renderer && containerElement.contains(renderer.domElement)) {
+        containerElement.removeChild(renderer.domElement);
       }
       renderer.dispose();
     };

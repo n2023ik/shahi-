@@ -78,16 +78,22 @@ export default function LiveDeliveryTracker() {
     const container = containerRef.current;
     if (!container) return;
 
+    const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.bg);
 
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
     camera.position.set(15, 12, 15);
+    camera.lookAt(0, 1, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(getPixelRatio());
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.width = "100%";
+    renderer.domElement.style.height = "100%";
+    renderer.domElement.style.display = "block";
     container.appendChild(renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -214,9 +220,17 @@ export default function LiveDeliveryTracker() {
     const updateSize = () => {
       const width = container.clientWidth || window.innerWidth;
       const height = container.clientHeight || window.innerHeight;
-      renderer.setSize(width, height, false);
+      if (!width || !height) return;
+      renderer.setPixelRatio(getPixelRatio());
+      renderer.setSize(width, height, true);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        updateSize();
+      }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -251,6 +265,8 @@ export default function LiveDeliveryTracker() {
 
     const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
+    window.addEventListener("resize", updateSize);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     updateSize();
 
     let animationFrameId = 0;
@@ -274,6 +290,8 @@ export default function LiveDeliveryTracker() {
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSize);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       container.removeEventListener("pointerdown", handlePointerDown);
       container.removeEventListener("pointermove", handlePointerMove);
       container.removeEventListener("pointerup", handlePointerUp);

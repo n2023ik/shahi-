@@ -22,6 +22,8 @@ export const SidebarLiveTracker = () => {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const getPixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
+
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
@@ -37,9 +39,12 @@ export const SidebarLiveTracker = () => {
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(getPixelRatio());
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -198,6 +203,30 @@ export const SidebarLiveTracker = () => {
       renderer.render(scene, camera);
     };
 
+    const updateSize = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
+      if (!newWidth || !newHeight) return;
+      renderer.setPixelRatio(getPixelRatio());
+      renderer.setSize(newWidth, newHeight, true);
+      camera.aspect = newWidth / newHeight;
+      camera.updateProjectionMatrix();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        updateSize();
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener('resize', updateSize);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    updateSize();
+
     animate();
 
     // Cleanup
@@ -205,6 +234,9 @@ export const SidebarLiveTracker = () => {
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current);
       }
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (renderer && containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
