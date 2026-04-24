@@ -700,90 +700,90 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
 
   if (page === 'next') {
     return (
-      <div className="bg-slate-100 min-h-screen p-4 md:p-8 font-sans text-gray-800 printable-area">
-        <div className="max-w-6xl mx-auto bg-white shadow-2xl p-8 border-t-8 border-slate-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-800 transform rotate-45 translate-x-16 -translate-y-16 opacity-10"></div>
+      <div className="bg-slate-100 min-h-screen p-2 sm:p-4 md:p-8 font-sans text-gray-800 printable-area">
+        <div className="max-w-6xl mx-auto bg-white shadow-2xl p-4 sm:p-6 md:p-8 border-t-4 sm:border-t-8 border-slate-800 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-slate-800 transform rotate-45 translate-x-16 -translate-y-16 opacity-10"></div>
 
-          <header className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
-            <div className="flex items-center gap-5">
-              <div className="bg-slate-800 p-3 rounded-lg flex flex-col items-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform">
-                <img src={lynkitLogoUrl} alt="Lynkit logo" className="w-10 h-10 rounded object-cover" crossOrigin="anonymous" />
-                <span className="text-white text-[8px] font-black tracking-widest mt-1">LYNKIT</span>
+          <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0 border-b-2 border-slate-200 pb-4 sm:pb-6 mb-4 sm:mb-6">
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="bg-slate-800 p-2 sm:p-3 rounded-lg flex flex-col items-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform shrink-0">
+                <img src={lynkitLogoUrl} alt="Lynkit logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded object-cover" crossOrigin="anonymous" />
+                <span className="text-white text-[7px] sm:text-[8px] font-black tracking-widest mt-1">LYNKIT</span>
               </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="bg-slate-800 text-white text-[9px] font-black px-2 py-0.5 rounded">PAGE 2</span>
-                  <span className="text-slate-400 text-[9px] font-bold">DEEP DIVE CONTINUATION</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="bg-slate-800 text-white text-[7px] sm:text-[9px] font-black px-2 py-0.5 rounded">PAGE 2</span>
+                  <span className="text-slate-400 text-[7px] sm:text-[9px] font-bold hidden sm:inline">DEEP DIVE</span>
                 </div>
-                <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">DAILY SUMMARY - NEXT PAGE</h1>
-                <p className="text-sm text-slate-500 font-medium mt-1">Operational drill-down, exceptions, and route-level follow-up</p>
+                <h1 className="text-xl sm:text-2xl md:text-4xl font-black text-slate-800 tracking-tighter leading-tight break-words">DAILY SUMMARY - NEXT PAGE</h1>
+                <p className="text-[10px] sm:text-xs md:text-sm text-slate-500 font-medium mt-1">Drill-down & follow-up</p>
               </div>
             </div>
 
-            <div className="text-right flex flex-col items-end">
-              <div className="bg-slate-800 text-white px-6 py-3 rounded-bl-3xl shadow-md">
-                <div className="text-[10px] uppercase font-bold opacity-70 tracking-widest mb-1 text-right">Reporting Date</div>
-                <div className="text-2xl font-black whitespace-nowrap">{reportDateLabel}</div>
-                <div className="text-[10px] opacity-60 font-bold tracking-tight text-right italic">(Continuation View)</div>
+            <div className="text-right flex flex-col items-end shrink-0">
+              <div className="bg-slate-800 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-bl-3xl shadow-md">
+                <div className="text-[7px] sm:text-[10px] uppercase font-bold opacity-70 tracking-widest mb-1 text-right">Reporting Date</div>
+                <div className="text-base sm:text-2xl font-black whitespace-nowrap">{reportDateLabel}</div>
+                <div className="text-[7px] sm:text-[10px] opacity-60 font-bold tracking-tight text-right italic">Continuation</div>
               </div>
             </div>
           </header>
 
-          <section className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-6 w-1.5 bg-slate-800 rounded-full"></div>
-              <h2 className="text-xs font-black uppercase text-slate-800 tracking-widest">Secondary KPIs - Focus Areas</h2>
+          <section className="mb-4 sm:mb-8">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <div className="h-4 sm:h-6 w-1 sm:w-1.5 bg-slate-800 rounded-full"></div>
+              <h2 className="text-[10px] sm:text-xs font-black uppercase text-slate-800 tracking-widest">Secondary KPIs - Focus Areas</h2>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white border rounded shadow-sm p-4 flex flex-col items-center text-center">
-                <div className="p-2 rounded-full bg-emerald-50 text-emerald-600 mb-2"><CheckCircle size={16} /></div>
-                <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">On-Time Delivery</span>
-                <span className="text-2xl font-black text-slate-800 leading-tight mt-1">{summaryStats.totalTrips ? ((summaryStats.completedTrips / summaryStats.totalTrips) * 100).toFixed(1) : '0.0'}%</span>
-                <span className="text-[10px] text-emerald-600 font-semibold mt-1">+3.2% vs last week</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div className="bg-white border rounded shadow-sm p-2 sm:p-4 flex flex-col items-center text-center">
+                <div className="p-1 sm:p-2 rounded-full bg-emerald-50 text-emerald-600 mb-1 sm:mb-2"><CheckCircle size={14} className="w-3 h-3 sm:w-4 sm:h-4" /></div>
+                <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider">On-Time</span>
+                <span className="text-base sm:text-2xl font-black text-slate-800 leading-tight mt-0.5 sm:mt-1">{summaryStats.totalTrips ? ((summaryStats.completedTrips / summaryStats.totalTrips) * 100).toFixed(1) : '0.0'}%</span>
+                <span className="text-[7px] sm:text-[10px] text-emerald-600 font-semibold mt-0.5">+3.2%</span>
               </div>
-              <div className="bg-white border rounded shadow-sm p-4 flex flex-col items-center text-center">
-                <div className="p-2 rounded-full bg-blue-50 text-blue-600 mb-2"><Truck size={16} /></div>
-                <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Fleet Utilization</span>
-                <span className="text-2xl font-black text-slate-800 leading-tight mt-1">{summaryStats.totalTrips ? ((summaryStats.deliveredTrips / summaryStats.totalTrips) * 100).toFixed(1) : '0.0'}%</span>
-                <span className="text-[10px] text-blue-600 font-semibold mt-1">+1.1% vs last week</span>
+              <div className="bg-white border rounded shadow-sm p-2 sm:p-4 flex flex-col items-center text-center">
+                <div className="p-1 sm:p-2 rounded-full bg-blue-50 text-blue-600 mb-1 sm:mb-2"><Truck size={14} className="w-3 h-3 sm:w-4 sm:h-4" /></div>
+                <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider">Fleet Usage</span>
+                <span className="text-base sm:text-2xl font-black text-slate-800 leading-tight mt-0.5 sm:mt-1">{summaryStats.totalTrips ? ((summaryStats.deliveredTrips / summaryStats.totalTrips) * 100).toFixed(1) : '0.0'}%</span>
+                <span className="text-[7px] sm:text-[10px] text-blue-600 font-semibold mt-0.5">+1.1%</span>
               </div>
-              <div className="bg-white border rounded shadow-sm p-4 flex flex-col items-center text-center">
-                <div className="p-2 rounded-full bg-red-50 text-red-600 mb-2"><AlertTriangle size={16} /></div>
-                <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Critical Delays</span>
-                <span className="text-2xl font-black text-slate-800 leading-tight mt-1">{summaryStats.pickupDelayedTrips}</span>
-                <span className="text-[10px] text-red-600 font-semibold mt-1">-5.0% vs last week</span>
+              <div className="bg-white border rounded shadow-sm p-2 sm:p-4 flex flex-col items-center text-center">
+                <div className="p-1 sm:p-2 rounded-full bg-red-50 text-red-600 mb-1 sm:mb-2"><AlertTriangle size={14} className="w-3 h-3 sm:w-4 sm:h-4" /></div>
+                <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider">Delays</span>
+                <span className="text-base sm:text-2xl font-black text-slate-800 leading-tight mt-0.5 sm:mt-1">{summaryStats.pickupDelayedTrips}</span>
+                <span className="text-[7px] sm:text-[10px] text-red-600 font-semibold mt-0.5">-5.0%</span>
               </div>
-              <div className="bg-white border rounded shadow-sm p-4 flex flex-col items-center text-center">
-                <div className="p-2 rounded-full bg-slate-50 text-slate-600 mb-2"><Info size={16} /></div>
-                <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Efficiency Index</span>
-                <span className="text-2xl font-black text-slate-800 leading-tight mt-1">{summaryStats.efficiencyIndex}%</span>
-                <span className="text-[10px] text-emerald-600 font-semibold mt-1">+3.5% vs yesterday</span>
+              <div className="bg-white border rounded shadow-sm p-2 sm:p-4 flex flex-col items-center text-center">
+                <div className="p-1 sm:p-2 rounded-full bg-slate-50 text-slate-600 mb-1 sm:mb-2"><Info size={14} className="w-3 h-3 sm:w-4 sm:h-4" /></div>
+                <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider">Efficiency</span>
+                <span className="text-base sm:text-2xl font-black text-slate-800 leading-tight mt-0.5 sm:mt-1">{summaryStats.efficiencyIndex}%</span>
+                <span className="text-[7px] sm:text-[10px] text-emerald-600 font-semibold mt-0.5">+3.5%</span>
               </div>
             </div>
           </section>
 
-          <div className="grid grid-cols-2 gap-6 mb-8">
-            <div className="border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <h3 className="bg-slate-100 p-3 text-[10px] font-black uppercase text-slate-600 tracking-widest border-b border-slate-200 flex items-center gap-2">
-                <MapPin size={12} /> Top Routes Follow-Up
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+            <div className="border border-slate-200 rounded-lg md:rounded-2xl shadow-sm overflow-hidden">
+              <h3 className="bg-slate-100 p-2 md:p-3 text-[8px] md:text-[10px] font-black uppercase text-slate-600 tracking-widest border-b border-slate-200 flex items-center gap-2">
+                <MapPin size={10} /> Top Routes Follow-Up
               </h3>
-              <table className="w-full text-left text-[10px]">
-                <thead className="bg-slate-50 text-slate-400 font-black uppercase">
+              <table className="w-full text-left text-[8px] md:text-[10px]">
+                <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[7px] md:text-[9px]">
                   <tr>
-                    <th className="px-4 py-3">Source</th>
-                    <th className="px-3 py-3">Destination</th>
-                    <th className="px-3 py-3 text-center">Avg TAT</th>
-                    <th className="px-3 py-3 text-center">Trips</th>
+                    <th className="px-2 md:px-4 py-2 md:py-3">Source</th>
+                    <th className="px-2 md:px-3 py-2 md:py-3 text-center">Dest</th>
+                    <th className="px-1 md:px-3 py-2 md:py-3 text-center">TAT</th>
+                    <th className="px-1 md:px-3 py-2 md:py-3 text-center hidden sm:table-cell">Trips</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 text-[7px] md:text-[10px]">
                   {routeData.map((r, i) => (
                     <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-medium">{r.source}</td>
-                      <td className="px-3 py-2.5 font-medium">{r.dest}</td>
-                      <td className="px-3 py-2.5 text-center font-black text-slate-800">{r.tat}d</td>
-                      <td className="px-3 py-2.5 text-center font-bold text-slate-500">{r.trips}</td>
+                      <td className="px-2 md:px-4 py-1.5 md:py-2.5 truncate">{r.source}</td>
+                      <td className="px-2 md:px-3 py-1.5 md:py-2.5 text-center truncate">{r.dest}</td>
+                      <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-black text-slate-800">{r.tat}d</td>
+                      <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-bold text-slate-500 hidden sm:table-cell">{r.trips}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -794,7 +794,7 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
               <h3 className="bg-slate-100 p-3 text-[10px] font-black uppercase text-slate-600 tracking-widest border-b border-slate-200 flex items-center gap-2">
                 <AlertTriangle size={12} /> Transporters Needing Attention
               </h3>
-              <table className="w-full text-left text-[10px]">
+              <table className="w-full text-left text-[8px] md:text-[10px]">
                 <thead className="bg-slate-50 text-slate-400 font-black uppercase">
                   <tr>
                     <th className="px-4 py-3">Transporter</th>
@@ -822,7 +822,7 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
               <h3 className="bg-slate-800 p-3 text-[10px] font-black uppercase text-white tracking-widest flex items-center gap-2">
                 <ClipboardList size={12} /> Trip Exception Snapshot
               </h3>
-              <table className="w-full text-left text-[10px]">
+              <table className="w-full text-left text-[8px] md:text-[10px]">
                 <thead className="bg-slate-50 text-slate-500 font-black uppercase border-b border-slate-100">
                   <tr>
                     <th className="px-4 py-3">Trip</th>
@@ -916,50 +916,50 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
   }
 
   return (
-    <div className="bg-slate-100 min-h-screen p-4 md:p-8 font-sans text-gray-800 printable-area">
+    <div className="bg-slate-100 min-h-screen p-2 sm:p-4 md:p-8 font-sans text-gray-800 printable-area">
       {/* Report Container (A4 Aspect Ratio Approximation) */}
-      <div className="max-w-6xl mx-auto bg-white shadow-2xl p-8 border-t-8 border-slate-800 relative overflow-hidden">
+      <div className="max-w-6xl mx-auto bg-white shadow-2xl p-4 sm:p-6 md:p-8 border-t-4 sm:border-t-8 border-slate-800 relative overflow-hidden">
         
         {/* Top Accent Bar */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-800 transform rotate-45 translate-x-16 -translate-y-16 opacity-10"></div>
+        <div className="absolute top-0 right-0 w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-slate-800 transform rotate-45 translate-x-16 -translate-y-16 opacity-10"></div>
 
         {/* Header Section */}
-        <header className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
-          <div className="flex items-center gap-5">
-            <div className="bg-slate-800 p-3 rounded-lg flex flex-col items-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform">
-              <img src={lynkitLogoUrl} alt="Lynkit logo" className="w-10 h-10 rounded object-cover" crossOrigin="anonymous" />
-              <span className="text-white text-[8px] font-black tracking-widest mt-1">LYNKIT</span>
+        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-0 border-b-2 border-slate-200 pb-4 sm:pb-6 mb-4 sm:mb-6">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="bg-slate-800 p-2 sm:p-3 rounded-lg flex flex-col items-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform shrink-0">
+              <img src={lynkitLogoUrl} alt="Lynkit logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded object-cover" crossOrigin="anonymous" />
+              <span className="text-white text-[7px] sm:text-[8px] font-black tracking-widest mt-1">LYNKIT</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-blue-600 text-white text-[9px] font-black px-2 py-0.5 rounded">SYSTEM GENERATED</span>
-                <span className="text-slate-400 text-[9px] font-bold">REPORT ID: TA-2025-0516-01</span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="bg-blue-600 text-white text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded">SYSTEM GENERATED</span>
+                <span className="text-slate-400 text-[8px] sm:text-[9px] font-bold hidden sm:inline">REPORT ID: TA-2025-0516-01</span>
               </div>
-              <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">DAILY PERFORMANCE REPORT</h1>
-              <p className="text-sm text-slate-500 font-medium mt-1">Operational Analytics & Efficiency Review Dashboard</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 tracking-tighter leading-tight break-words">DAILY PERFORMANCE REPORT</h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">Operational Analytics & Efficiency Review Dashboard</p>
             </div>
           </div>
           
-          <div className="text-right flex flex-col items-end">
-            <div className="bg-slate-800 text-white px-6 py-3 rounded-bl-3xl shadow-md">
-              <div className="text-[10px] uppercase font-bold opacity-70 tracking-widest mb-1 text-right">Reporting Date</div>
-              <div className="text-2xl font-black whitespace-nowrap">{reportDateLabel}</div>
-              <div className="text-[10px] opacity-60 font-bold tracking-tight text-right italic">({reportWeekdayLabel} - 24hr Summary)</div>
+          <div className="text-right flex flex-col items-end shrink-0">
+            <div className="bg-slate-800 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-bl-3xl shadow-md">
+              <div className="text-[8px] sm:text-[10px] uppercase font-bold opacity-70 tracking-widest mb-1 text-right">Reporting Date</div>
+              <div className="text-lg sm:text-2xl font-black whitespace-nowrap">{reportDateLabel}</div>
+              <div className="text-[8px] sm:text-[10px] opacity-60 font-bold tracking-tight text-right italic">({reportWeekdayLabel} - 24hr)</div>
             </div>
           </div>
         </header>
 
         {/* Top Animation Strip */}
-        <div className="mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 px-5 py-4 shadow-lg">
-          <div className="flex items-center justify-between gap-4 text-white">
+        <div className="mb-4 sm:mb-8 overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 px-3 sm:px-5 py-3 sm:py-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 text-white">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Live delivery motion</div>
-              <div className="mt-1 text-sm font-semibold text-white/85">Routes updating in real time</div>
+              <div className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.28em] text-cyan-200">Live delivery motion</div>
+              <div className="mt-1 text-xs sm:text-sm font-semibold text-white/85">Routes updating in real time</div>
             </div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">Tracking active</div>
+            <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.24em] text-emerald-300">Tracking active</div>
           </div>
 
-          <div className="mt-4 relative h-16 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+          <div className="mt-3 sm:mt-4 relative h-12 sm:h-16 overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-white/5">
             <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
             <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.12)_0,rgba(255,255,255,0.12)_14px,transparent_14px,transparent_26px)]" />
 
@@ -972,26 +972,26 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
             <div className="absolute left-[72%] top-[24%] h-3 w-3 rounded-full bg-sky-300/80 blur-[1px] animate-[pulse_2.5s_ease-in-out_infinite]" />
 
             <div className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-2 text-cyan-100 animate-[routeMove_5.5s_linear_infinite]">
-              <Truck size={22} className="drop-shadow-[0_0_12px_rgba(34,211,238,0.65)]" />
-              <div className="h-2 w-20 rounded-full bg-gradient-to-r from-cyan-300 via-white to-transparent opacity-70" />
+              <Truck size={16} className="drop-shadow-[0_0_12px_rgba(34,211,238,0.65)] sm:w-[22px] sm:h-[22px] w-4 h-4" />
+              <div className="h-1.5 sm:h-2 w-12 sm:w-20 rounded-full bg-gradient-to-r from-cyan-300 via-white to-transparent opacity-70" />
             </div>
 
-            <div className="absolute right-4 bottom-3 rounded-full border border-white/15 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+            <div className="absolute right-2 sm:right-4 bottom-2 sm:bottom-3 rounded-full border border-white/15 bg-black/20 px-2 sm:px-3 py-0.5 sm:py-1 text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.15em] sm:tracking-[0.18em] text-white/80 whitespace-nowrap">
               On route
             </div>
           </div>
         </div>
 
         {/* Executive Summary Section */}
-        <section className="mb-8">
-          <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-white shadow-lg">
-            <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <section className="mb-4 sm:mb-8">
+          <div className="mb-4 rounded-xl sm:rounded-2xl border border-slate-700 bg-slate-950 px-3 sm:px-4 py-3 sm:py-4 text-white shadow-lg">
+            <div className="mb-3 flex flex-col gap-3 sm:gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
-                <Filter size={16} className="text-cyan-300" />
-                <h3 className="text-sm font-black uppercase tracking-wider text-cyan-100">Filters</h3>
+                <Filter size={14} className="text-cyan-300 shrink-0" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-cyan-100">Filters</h3>
               </div>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="rounded-full bg-white/10 px-3 py-1 font-bold text-cyan-100">
+              <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[11px] sm:text-xs">
+                <span className="rounded-full bg-white/10 px-2 sm:px-3 py-1 font-bold text-cyan-100">
                   {hasActiveFilters ? `Filtered: ${filteredTrips.length} trips` : `Overall: ${filteredTrips.length} trips`}
                 </span>
                 <button
@@ -1012,33 +1012,33 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <select value={filters.origin} onChange={(e) => setFilters((prev) => ({ ...prev, origin: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+              <select value={filters.origin} onChange={(e) => setFilters((prev) => ({ ...prev, origin: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="all">All Origins</option>
                 {filterOptions.origins.map((origin) => <option key={origin} value={origin}>{origin}</option>)}
               </select>
 
-              <select value={filters.destination} onChange={(e) => setFilters((prev) => ({ ...prev, destination: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+              <select value={filters.destination} onChange={(e) => setFilters((prev) => ({ ...prev, destination: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="all">All Destinations</option>
                 {filterOptions.destinations.map((destination) => <option key={destination} value={destination}>{destination}</option>)}
               </select>
 
-              <select value={filters.transporter} onChange={(e) => setFilters((prev) => ({ ...prev, transporter: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+              <select value={filters.transporter} onChange={(e) => setFilters((prev) => ({ ...prev, transporter: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="all">All Transporters</option>
                 {filterOptions.transporters.map((transporter) => <option key={transporter} value={transporter}>{transporter}</option>)}
               </select>
 
-              <select value={filters.mode} onChange={(e) => setFilters((prev) => ({ ...prev, mode: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+              <select value={filters.mode} onChange={(e) => setFilters((prev) => ({ ...prev, mode: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="all">All Modes</option>
                 {filterOptions.modes.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
               </select>
 
-              <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+              <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="all">All Statuses</option>
                 {filterOptions.statuses.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
 
-              <select value={filters.datePreset} onChange={(e) => setFilters((prev) => ({ ...prev, datePreset: e.target.value }))} className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300">
+              <select value={filters.datePreset} onChange={(e) => setFilters((prev) => ({ ...prev, datePreset: e.target.value }))} className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full">
                 <option value="today">Today</option>
                 <option value="last7days">Last 7 Days</option>
                 <option value="all">All Dates</option>
@@ -1048,30 +1048,30 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
-                className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300"
+                className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full"
               />
 
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
-                className="rounded-xl border border-white/20 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300"
+                className="rounded-lg sm:rounded-xl border border-white/20 bg-slate-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-cyan-300 w-full"
               />
             </div>
           </div>
 
-          <div className="mb-4 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-4 shadow-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="mb-4 rounded-xl sm:rounded-2xl border border-cyan-200 bg-cyan-50 px-3 sm:px-4 py-3 sm:py-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-700">Quick access</p>
-                <h3 className="text-sm font-black text-slate-900">Open the second summary page</h3>
-                <p className="text-xs text-slate-600">Use this if the tab strip is hard to see on mobile.</p>
+                <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-cyan-700">Quick access</p>
+                <h3 className="text-xs sm:text-sm font-black text-slate-900">Open the second summary page</h3>
+                <p className="text-[10px] sm:text-xs text-slate-600">Use this if the tab strip is hard to see on mobile.</p>
               </div>
               {onGoToNextPage && (
                 <button
                   type="button"
                   onClick={onGoToNextPage}
-                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
+                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-95 whitespace-nowrap"
                 >
                   Summary Page 2
                 </button>
@@ -1079,25 +1079,25 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
             </div>
           </div>
 
-          <div className="mb-6 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-4 shadow-md">
+          <div className="mb-6 rounded-xl sm:rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 sm:px-4 py-3 sm:py-4 shadow-md">
             <div className="mb-3 flex items-center gap-2">
-              <CheckCircle size={18} className="text-emerald-600" />
-              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-900">Today's Quick Stats</h3>
+              <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-900">Today's Quick Stats</h3>
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="rounded-xl bg-white border border-sky-100 p-4 shadow-sm">
-                <div className="text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-2">Total Trips Created</div>
-                <div className="text-3xl font-black text-sky-700">{todayStats.totalTrips}</div>
-                <div className="text-[11px] text-sky-600 font-semibold mt-1">Today</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              <div className="rounded-lg sm:rounded-xl bg-white border border-sky-100 p-2 sm:p-4 shadow-sm">
+                <div className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-1 sm:mb-2">Total Trips</div>
+                <div className="text-xl sm:text-3xl font-black text-sky-700">{todayStats.totalTrips}</div>
+                <div className="text-[9px] sm:text-[11px] text-sky-600 font-semibold mt-1">Today</div>
               </div>
-              <div className="rounded-xl bg-white border border-emerald-100 p-4 shadow-sm">
-                <div className="text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-2">Completed Today</div>
-                <div className="text-3xl font-black text-emerald-700">{todayStats.completedTrips}</div>
-                <div className="text-[11px] text-emerald-600 font-semibold mt-1">Today</div>
+              <div className="rounded-lg sm:rounded-xl bg-white border border-emerald-100 p-2 sm:p-4 shadow-sm">
+                <div className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-1 sm:mb-2">Completed</div>
+                <div className="text-xl sm:text-3xl font-black text-emerald-700">{todayStats.completedTrips}</div>
+                <div className="text-[9px] sm:text-[11px] text-emerald-600 font-semibold mt-1">Today</div>
               </div>
-              <div className="rounded-xl bg-white border border-blue-100 p-4 shadow-sm">
-                <div className="text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-2">Delivered Today</div>
-                <div className="text-3xl font-black text-blue-700">{todayStats.deliveredTrips}</div>
+              <div className="rounded-lg sm:rounded-xl bg-white border border-blue-100 p-2 sm:p-4 shadow-sm">
+                <div className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-1 sm:mb-2">Delivered</div>
+                <div className="text-xl sm:text-3xl font-black text-blue-700">{todayStats.deliveredTrips}</div>
                 <div className="text-[11px] text-blue-600 font-semibold mt-1">Today</div>
               </div>
               <div className="rounded-xl bg-white border border-indigo-100 p-4 shadow-sm">
@@ -1261,27 +1261,27 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
         </div>
 
         {/* Performance Tables */}
-        <div className="grid grid-cols-2 gap-6 mb-8">
-          <div className="border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <h3 className="bg-slate-800 p-3 text-[10px] font-black uppercase text-white tracking-widest flex justify-between items-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+          <div className="border border-slate-200 rounded-lg md:rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <h3 className="bg-slate-800 p-2 md:p-3 text-[8px] md:text-[10px] font-black uppercase text-white tracking-widest flex justify-between items-center gap-2">
               Top 5 Performers <span className="bg-emerald-500 text-white px-2 py-0.5 rounded text-[8px]">BENCHMARK</span>
             </h3>
-            <table className="w-full text-left text-[10px]">
-              <thead className="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-100">
+            <table className="w-full text-left text-[8px] md:text-[10px]">
+              <thead className="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-100 text-[7px] md:text-[9px]">
                 <tr>
-                  <th className="px-4 py-3">Transporter</th>
-                  <th className="px-3 py-3 text-center">Trips</th>
-                  <th className="px-3 py-3 text-center">Avg TAT</th>
-                  <th className="px-3 py-3 text-center">On Time %</th>
+                  <th className="px-2 md:px-4 py-2 md:py-3">Transporter</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center text-[6px] md:text-[10px]">Trips</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center">TAT</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center hidden sm:table-cell">On Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 text-[7px] md:text-[10px]">
                 {transporterPerformance.map((t, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-2.5 font-bold text-slate-700">{t.name}</td>
-                    <td className="px-3 py-2.5 text-center font-medium">{t.trips}</td>
-                    <td className="px-3 py-2.5 text-center font-black text-slate-800">{t.tat}d</td>
-                    <td className="px-3 py-2.5 text-center text-emerald-600 font-black">{t.onTime}</td>
+                    <td className="px-2 md:px-4 py-1.5 md:py-2.5 font-bold text-slate-700 truncate">{t.name}</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-medium">{t.trips}</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-black text-slate-800">{t.tat}d</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center text-emerald-600 font-black hidden sm:table-cell">{t.onTime}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1292,22 +1292,22 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
             <h3 className="bg-slate-800 p-3 text-[10px] font-black uppercase text-white tracking-widest flex justify-between items-center">
               Performance Laggards <span className="bg-red-500 text-white px-2 py-0.5 rounded text-[8px]">ATTENTION</span>
             </h3>
-            <table className="w-full text-left text-[10px]">
-              <thead className="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-100">
+            <table className="w-full text-left text-[8px] md:text-[10px]">
+              <thead className="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-100 text-[7px] md:text-[9px]">
                 <tr>
-                  <th className="px-4 py-3">Transporter</th>
-                  <th className="px-3 py-3 text-center">Trips</th>
-                  <th className="px-3 py-3 text-center">Avg TAT</th>
-                  <th className="px-3 py-3 text-center">On Time %</th>
+                  <th className="px-2 md:px-4 py-2 md:py-3">Transporter</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center text-[6px] md:text-[10px]">Trips</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center">TAT</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center hidden sm:table-cell">On Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 text-[7px] md:text-[10px]">
                 {worstTransporterPerformance.map((t, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-2.5 font-bold text-slate-700">{t.name}</td>
-                    <td className="px-3 py-2.5 text-center font-medium">{t.trips}</td>
-                    <td className="px-3 py-2.5 text-center font-black text-slate-800">{t.tat}d</td>
-                    <td className="px-3 py-2.5 text-center text-red-600 font-black">{t.onTime}</td>
+                    <td className="px-2 md:px-4 py-1.5 md:py-2.5 font-bold text-slate-700 truncate">{t.name}</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-medium">{t.trips}</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-black text-slate-800">{t.tat}d</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center text-red-600 font-black hidden sm:table-cell">{t.onTime}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1316,39 +1316,39 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
         </div>
 
         {/* Route Performance and Secondary Table */}
-        <div className="grid grid-cols-2 gap-6 mb-8">
-          <div className="border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <h3 className="bg-slate-100 p-3 text-[10px] font-black uppercase text-slate-600 tracking-widest border-b border-slate-200 flex items-center gap-2">
-              <MapPin size={12} /> Top Routes Analysis (TAT Focus)
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+          <div className="border border-slate-200 rounded-lg md:rounded-2xl shadow-sm overflow-hidden">
+            <h3 className="bg-slate-100 p-2 md:p-3 text-[8px] md:text-[10px] font-black uppercase text-slate-600 tracking-widest border-b border-slate-200 flex items-center gap-2">
+              <MapPin size={10} /> Top Routes Analysis (TAT Focus)
             </h3>
-            <table className="w-full text-left text-[10px]">
-              <thead className="bg-slate-50 text-slate-400 font-black uppercase">
+            <table className="w-full text-left text-[8px] md:text-[10px]">
+              <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[7px] md:text-[9px]">
                 <tr>
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-3 py-3">Destination</th>
-                  <th className="px-3 py-3 text-center">Avg TAT</th>
-                  <th className="px-3 py-3 text-center">Vol.</th>
+                  <th className="px-2 md:px-4 py-2 md:py-3">Source</th>
+                  <th className="px-2 md:px-3 py-2 md:py-3">Dest</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center">TAT</th>
+                  <th className="px-1 md:px-3 py-2 md:py-3 text-center\">Vol.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {routeData.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5 font-medium">{r.source}</td>
-                    <td className="px-3 py-2.5 font-medium">{r.dest}</td>
-                    <td className="px-3 py-2.5 text-center font-black text-slate-800">{r.tat}d</td>
-                    <td className="px-3 py-2.5 text-center font-bold text-slate-500">{r.trips}</td>
+                    <td className="px-2 md:px-4 py-1.5 md:py-2.5 font-medium truncate\">{r.source}</td>
+                    <td className="px-2 md:px-3 py-1.5 md:py-2.5 font-medium truncate\">{r.dest}</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-black text-slate-800\">{r.tat}d</td>
+                    <td className="px-1 md:px-3 py-1.5 md:py-2.5 text-center font-bold text-slate-500\">{r.trips}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <div className="border border-slate-200 rounded-2xl p-5 bg-slate-800 text-white shadow-lg relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10">
-               <TrendingUp size={100} />
+          <div className="border border-slate-200 rounded-lg md:rounded-2xl p-3 md:p-5 bg-slate-800 text-white shadow-lg relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10">
+               <TrendingUp size={60} className="md:w-[100px] md:h-[100px]" />
+               <TrendingUp size={60} className="md:w-[100px] md:h-[100px]" />
              </div>
-             <h3 className="text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-               <Info size={14} className="text-blue-400" /> Operational Efficiency Brief
+             <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2">
+               <Info size={12} className="text-blue-400 md:w-[14px] md:h-[14px]" /> Operational Efficiency Brief
              </h3>
              <div className="space-y-4 relative z-10">
                <div>
@@ -1379,24 +1379,24 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
         </div>
 
         {/* Detailed Table Section */}
-        <section className="mb-8 border-2 border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-          <h3 className="bg-slate-800 text-white p-4 text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3">
+        <section className="mb-8 border border-slate-200 rounded-lg md:rounded-2xl shadow-sm overflow-hidden">
+          <h3 className="bg-slate-800 text-white p-2 md:p-4 text-[9px] md:text-[11px] font-black uppercase tracking-widest md:tracking-[0.2em] flex items-center gap-2 md:gap-3">
             <ClipboardList size={16} /> Detailed Sample Trip Registry
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[10px]">
-              <thead className="bg-slate-50 text-slate-500 font-black uppercase border-b border-slate-200">
+            <table className="w-full text-left text-[8px] md:text-[10px]">
+              <thead className="bg-slate-50 text-slate-500 font-black uppercase text-[7px] md:text-[9px] border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-4 text-center">#</th>
-                  <th className="px-3 py-4">Trip Identifier</th>
-                  <th className="px-3 py-4">Creation</th>
-                  <th className="px-3 py-4">Origin</th>
-                  <th className="px-3 py-4">Destination</th>
-                  <th className="px-3 py-4">Transporter Entity</th>
-                  <th className="px-3 py-4">Current Status</th>
-                  <th className="px-3 py-4 text-center">P-TAT</th>
-                  <th className="px-3 py-4 text-center">D-TAT</th>
-                  <th className="px-3 py-4 text-center">Verification</th>
+                  <th className="px-2 md:px-4 py-2 md:py-4 text-center">#</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Trip Identifier</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Creation</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Origin</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Destination</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Transporter Entity</th>
+                  <th className="px-2 md:px-3 py-2 md:py-4">Current Status</th>
+                  <th className="px-1 md:px-3 py-2 md:py-4 text-center">P-TAT</th>
+                  <th className="px-1 md:px-3 py-2 md:py-4 text-center">D-TAT</th>
+                  <th className="px-1 md:px-3 py-2 md:py-4 text-center">Verification</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1836,3 +1836,6 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
     </div>
   );
 }
+
+
+
