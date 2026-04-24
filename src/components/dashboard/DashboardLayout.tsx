@@ -3,15 +3,16 @@ import {
   LayoutDashboard,
   Truck,
   BarChart3,
-  Plus,
   Package,
   MapPin,
   ClipboardList,
+  Navigation,
   Menu,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUserEmail } from "@/lib/auth";
+import { SidebarLiveTracker } from "./SidebarLiveTracker";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -26,6 +27,7 @@ interface DashboardLayoutProps {
 }
 
 const navItems = [
+  { id: "tracker", label: "Live Tracker", icon: Navigation },
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "daily-summary", label: "Daily Summary", icon: ClipboardList },
   { id: "trips", label: "Trips", icon: Truck },
@@ -48,7 +50,6 @@ export default function DashboardLayout({
   children,
   activeTab,
   onTabChange,
-  onNewTrip,
   modeCounts,
 }: DashboardLayoutProps) {
   const [tabDropdownOpen, setTabDropdownOpen] = useState(false);
@@ -154,20 +155,9 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        {/* Bottom Actions */}
+        <SidebarLiveTracker />
+
         <div className="flex-1" />
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          <button
-            onClick={onNewTrip}
-            className="avc-surface flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            New Trip
-          </button>
-          <button className="w-full rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-400 hover:bg-slate-800">
-            Logout
-          </button>
-        </div>
       </aside>
 
       {/* CONTENT AREA */}

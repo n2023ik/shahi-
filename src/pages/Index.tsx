@@ -11,6 +11,7 @@ import AnalyticsCharts from "@/components/dashboard/AnalyticsCharts";
 import SourceAnalysis from "@/components/dashboard/SourceAnalysis";
 import AdvancedViewControl from "@/components/dashboard/AdvancedViewControl";
 import DailyAutoSummary from "@/components/dashboard/DailyAutoSummary";
+import LiveDeliveryTracker from "@/components/dashboard/LiveDeliveryTracker";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -25,7 +26,7 @@ import {
 
 const Index = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("tracker");
   const [formOpen, setFormOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewTrip, setViewTrip] = useState<Trip | null>(null);
@@ -283,7 +284,7 @@ const Index = () => {
     >
       <div className="space-y-6">
         <div className="animate-fade-in">
-          {activeTab !== "shahi" && activeTab !== "comprehensive" && (
+          {activeTab !== "tracker" && activeTab !== "shahi" && activeTab !== "comprehensive" && (
             <>
               <h2 className="text-2xl font-bold tracking-tight">
                 {activeTab === "overview" && "Dashboard Overview"}
@@ -292,7 +293,7 @@ const Index = () => {
                 {activeTab === "by-source" && "Shipments by Source"}
                 {activeTab === "analytics" && "Analytics & Reports"}
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {activeTab === "overview" && "Monitor your logistics operations at a glance"}
                 {activeTab === "daily-summary" && "Open the report-style summary and second page view"}
                 {activeTab === "trips" && "View, create, and manage all trip records"}
@@ -336,6 +337,7 @@ const Index = () => {
                 </div>
               </div>
             )}
+            {activeTab === "tracker" && <LiveDeliveryTracker />}
             {(activeTab === "overview" || activeTab === "trips") && (
               <TripTable trips={filteredTrips} onEdit={handleEdit} onDelete={handleDeleteClick} onView={(t) => setViewTrip(t)} />
             )}

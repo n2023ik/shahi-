@@ -949,6 +949,39 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
           </div>
         </header>
 
+        {/* Top Animation Strip */}
+        <div className="mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 px-5 py-4 shadow-lg">
+          <div className="flex items-center justify-between gap-4 text-white">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Live delivery motion</div>
+              <div className="mt-1 text-sm font-semibold text-white/85">Routes updating in real time</div>
+            </div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">Tracking active</div>
+          </div>
+
+          <div className="mt-4 relative h-16 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
+            <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.12)_0,rgba(255,255,255,0.12)_14px,transparent_14px,transparent_26px)]" />
+
+            <div className="absolute left-[8%] top-1/2 -translate-y-1/2 animate-[pulse_2.4s_ease-in-out_infinite]">
+              <div className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.9)]" />
+            </div>
+
+            <div className="absolute left-[22%] top-[18%] h-4 w-4 rounded-full bg-cyan-300/80 blur-[1px] animate-[pulse_1.8s_ease-in-out_infinite]" />
+            <div className="absolute left-[48%] top-[58%] h-5 w-5 rounded-full bg-amber-300/80 blur-[1px] animate-[pulse_2.1s_ease-in-out_infinite]" />
+            <div className="absolute left-[72%] top-[24%] h-3 w-3 rounded-full bg-sky-300/80 blur-[1px] animate-[pulse_2.5s_ease-in-out_infinite]" />
+
+            <div className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-2 text-cyan-100 animate-[routeMove_5.5s_linear_infinite]">
+              <Truck size={22} className="drop-shadow-[0_0_12px_rgba(34,211,238,0.65)]" />
+              <div className="h-2 w-20 rounded-full bg-gradient-to-r from-cyan-300 via-white to-transparent opacity-70" />
+            </div>
+
+            <div className="absolute right-4 bottom-3 rounded-full border border-white/15 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+              On route
+            </div>
+          </div>
+        </div>
+
         {/* Executive Summary Section */}
         <section className="mb-8">
           <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-white shadow-lg">
@@ -1464,6 +1497,7 @@ export default function DailyAutoSummary({ page = 'summary', onGoToNextPage, tri
             </div>
           </div>
         </div>
+
       </div>
 
       {/* ===== HIDDEN PDF LAYOUT WITH CHARTS ===== */}
