@@ -265,13 +265,13 @@ const Index = () => {
 
         if (mode === "LSD") acc.lsd += 1;
         if (mode === "KNITS") acc.knits += 1;
-        if (mode === "M&D" || mode === "M&B" || mode === "M AND D" || mode === "M AND B") {
-          acc.mAndD += 1;
+        if (mode === "MNB" || mode === "M&D" || mode === "M&B" || mode === "M AND D" || mode === "M AND B") {
+          acc.mnb += 1;
         }
 
         return acc;
       },
-      { lsd: 0, knits: 0, mAndD: 0 }
+      { lsd: 0, knits: 0, mnb: 0 }
     );
   }, [trips]);
 

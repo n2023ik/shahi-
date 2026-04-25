@@ -20,6 +20,7 @@ import { NoInternet } from "@/components/NoInternet";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
 import { RefreshCw, Download, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -214,7 +215,7 @@ export default function ComprehensiveLogisticsDashboard() {
   /**
    * Export handlers
    */
-  const handleExport = (format: "csv" | "json") => {
+  const handleExport = (format: "csv" | "json" | "pdf") => {
     try {
       const exportData = filteredTrips.map((trip) => ({
         "Trip ID": trip.tripId,
@@ -238,11 +239,75 @@ export default function ComprehensiveLogisticsDashboard() {
           title: "Export successful",
           description: `Exported ${exportData.length} records to CSV`,
         });
-      } else {
+      } else if (format === "json") {
         exportToJSON(exportData, "logistics_dashboard");
         toast({
           title: "Export successful",
           description: `Exported ${exportData.length} records to JSON`,
+        });
+      } else {
+        const pdf = new jsPDF("p", "mm", "a4");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 14;
+        const contentWidth = pageWidth - margin * 2;
+        let cursorY = 18;
+
+        const ensureSpace = (requiredHeight: number) => {
+          if (cursorY + requiredHeight > pageHeight - margin) {
+            pdf.addPage();
+            cursorY = 18;
+          }
+        };
+
+        const addText = (text: string, options: { size?: number; bold?: boolean; x?: number; gapAfter?: number; wrap?: boolean } = {}) => {
+          const { size = 10, bold = false, x = margin, gapAfter = 0, wrap = false } = options;
+          ensureSpace(size / 2 + gapAfter + 4);
+          pdf.setFont("helvetica", bold ? "bold" : "normal");
+          pdf.setFontSize(size);
+          const lines = wrap ? pdf.splitTextToSize(text, contentWidth) : [text];
+          pdf.text(lines, x, cursorY);
+          cursorY += lines.length * (size * 0.45 + 1.5) + gapAfter;
+        };
+
+        const addSectionTitle = (title: string) => {
+          ensureSpace(10);
+          pdf.setDrawColor(15, 23, 42);
+          pdf.setLineWidth(0.6);
+          pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+          cursorY += 5;
+          addText(title, { size: 12, bold: true, gapAfter: 2 });
+        };
+
+        const totalTrips = metrics.totalShipmentCount ?? filteredTrips.length;
+        const completionRate = totalTrips > 0 ? ((metrics.completedTrips / totalTrips) * 100).toFixed(1) : "0.0";
+        const onTimeRate = metrics.onTimeDeliveryRate != null ? metrics.onTimeDeliveryRate.toFixed(1) : "0.0";
+
+        addText("Daily Performance Report", { size: 18, bold: true, gapAfter: 2 });
+        addText(`Generated on ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, { size: 10, gapAfter: 1 });
+        addText(`Scope: ${filteredTrips.length} filtered trips`, { size: 10, gapAfter: 4 });
+
+        addSectionTitle("Summary Metrics");
+        addText(`Total Trips: ${totalTrips}    Completed: ${metrics.completedTrips}    In Transit: ${metrics.inTransitTrips}`, { size: 10, gapAfter: 1 });
+        addText(`Delivered: ${metrics.deliveredAtFactory}    Pending: ${metrics.confirmationPending}    RTO: ${metrics.rtoShipments}`, { size: 10, gapAfter: 1 });
+        addText(`Completion Rate: ${completionRate}%    On-Time Delivery: ${onTimeRate}%    Health Score: ${metrics.overallHealthScore}`, { size: 10, gapAfter: 4 });
+
+        addSectionTitle("Top Records");
+        const topRecords = filteredTrips.slice(0, 18);
+        if (topRecords.length === 0) {
+          addText("No trips available for the selected filters.", { size: 10, gapAfter: 2 });
+        } else {
+          topRecords.forEach((trip, index) => {
+            const route = `${trip.sourceAddress || "Unknown"} → ${trip.destinationAddress || "Unknown"}`;
+            const line = `${index + 1}. ${trip.tripId || "N/A"} | ${route} | ${trip.tripStatus || "Unknown"} | ${trip.transporterName || "Unknown"}`;
+            addText(line, { size: 9, wrap: true, gapAfter: 1 });
+          });
+        }
+
+        pdf.save("daily-performance-report.pdf");
+        toast({
+          title: "Export successful",
+          description: `Downloaded daily performance report as PDF`,
         });
       }
     } catch (error) {

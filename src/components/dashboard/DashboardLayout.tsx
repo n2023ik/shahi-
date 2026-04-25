@@ -22,7 +22,7 @@ interface DashboardLayoutProps {
   modeCounts?: {
     lsd: number;
     knits: number;
-    mAndD: number;
+    mnb: number;
   };
 }
 
@@ -148,8 +148,8 @@ export default function DashboardLayout({
                 <p className="mt-1 text-2xl font-extrabold leading-none text-white">{modeCounts?.knits ?? 0}</p>
               </div>
               <div className="avc-surface rounded-lg border border-emerald-300/40 bg-emerald-950/40 px-3 py-3 text-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">M&amp;D</p>
-                <p className="mt-1 text-2xl font-extrabold leading-none text-white">{modeCounts?.mAndD ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">MNB</p>
+                <p className="mt-1 text-2xl font-extrabold leading-none text-white">{modeCounts?.mnb ?? 0}</p>
               </div>
             </div>
           </div>

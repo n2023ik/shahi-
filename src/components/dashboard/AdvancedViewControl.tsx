@@ -533,7 +533,7 @@ export default function AdvancedViewControl() {
         .map((mode) => [mode.trim().toUpperCase(), mode])
     );
 
-    return ["LSD", "KNITS"]
+    return ["LSD", "KNITS","MNB"]
       .filter((mode) => byUpperMode.has(mode))
       .map((mode) => ({ label: mode, value: byUpperMode.get(mode)! }));
   }, [uniqueModes]);

@@ -50,7 +50,7 @@ const packetStatuses = [
   "Damaged",
 ];
 
-const defaultModeOptions = ["LSD", "KNITS", "M&B"];
+const defaultModeOptions = ["LSD", "KNITS", "MNB"];
 
 const todayISO = () =>
   new Date().toISOString().slice(0, 10);
